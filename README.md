@@ -20,3 +20,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 * Add option to edit email before sending
 * Add option to select different email templates
 * Lightning Web Components for configuration
+
+## Notes
+* [How to use Flows for List View Records](https://www.accidentalcodersf.com/2020/07/use-flows-from-list-views-salesforce.html)
+    * [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)
