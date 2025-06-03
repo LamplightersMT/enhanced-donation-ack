@@ -65,9 +65,62 @@ public with sharing class DonationAcknowledgementService {
     if (opps.isEmpty()) {
       return 'No Opportunity IDs provided.';
     }
-    // TODO: Process opps (send emails, create EmailMessage records)
+
+    // Static email content
+    String subject = 'Thank you for your donation!';
+    String body = 'We appreciate your generous support.';
+
+    Integer sentCount = sendEmailsForOpportunities(opps, subject, body);
+
     return 'sendAcknowledgements called with ' +
       opps.size() +
-      ' Opportunities.';
+      ' Opportunities. Emails sent: ' +
+      sentCount;
+  }
+
+  /**
+   * Sends emails to the Contacts related to the given Opportunities.
+   * Ensures EmailMessage records are created and related via whatId.
+   * Returns the number of emails sent.
+   */
+  @TestVisible
+  private static Integer sendEmailsForOpportunities(
+    List<Opportunity> opps,
+    String subject,
+    String body
+  ) {
+    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
+    Integer sentCount = 0;
+    for (Opportunity opp : opps) {
+      if (opp.ContactId != null) {
+        Contact c = [
+          SELECT Id, Email
+          FROM Contact
+          WHERE Id = :opp.ContactId
+          LIMIT 1
+        ];
+        if (c.Email != null) {
+          Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+          mail.setToAddresses(new List<String>{ c.Email });
+          mail.setSubject(subject);
+          mail.setPlainTextBody(body);
+          mail.setTargetObjectId(c.Id); // for compliance, but not required if using setToAddresses
+          mail.setWhatId(opp.Id); // ensures EmailMessage is created and related
+          emails.add(mail);
+          sentCount++;
+        } else {
+          System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
+        }
+      } else {
+        System.debug(
+          LoggingLevel.WARN,
+          'Opportunity ' + opp.Id + ' has no ContactId.'
+        );
+      }
+    }
+    if (!emails.isEmpty()) {
+      Messaging.sendEmail(emails);
+    }
+    return sentCount;
   }
 }
