@@ -32,17 +32,13 @@ public with sharing class DonationAcknowledgementService {
      */
     @InvocableMethod(label='Send Donation Acknowledgements' description='Sends acknowledgement emails for selected Opportunities and creates EmailMessage records.')
     public static List<AckResultWrapper> sendAcknowledgementsInvocable(List<OpportunityIdWrapper> inputList) {
-        List<Id> idList = new List<Id>();
+        Set<Id> idSet = new Set<Id>();
         for (OpportunityIdWrapper w : inputList) {
             if (w != null && w.opportunityIds != null) {
-                for (Id idVal : w.opportunityIds) {
-                    if (idVal != null) {
-                        idList.add(idVal);
-                    }
-                }
+                idSet.addAll(w.opportunityIds);
             }
         }
-        List<Opportunity> opps = getOpportunitiesByIds(idList);
+        List<Opportunity> opps = getOpportunitiesByIds(new List<Id>(idSet));
         List<AckResultWrapper> results = new List<AckResultWrapper>();
         AckResultWrapper res = new AckResultWrapper();
         if (opps.isEmpty()) {
