@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="https://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Send_Acknowledgements</name>
+        <label>Send Acknowledgements</label>
+        <locationX>176</locationX>
+        <locationY>458</locationY>
+        <actionName>DonationAcknowledgementService</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Ack_Workflow_Result</targetReference>
+        </connector>
+        <flowTransactionModel>Automatic</flowTransactionModel>
+        <inputParameters>
+            <name>opportunityIds</name>
+            <value>
+                <elementReference>allIds</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>DonationAcknowledgementService</nameSegment>
+        <offset>0</offset>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <apiVersion>63.0</apiVersion>
+    <assignments>
+        <description>Concatenate the values of &apos;ids&apos; and &apos;recordId&apos; into &apos;allIds&apos;</description>
+        <name>Combine_Ids</name>
+        <label>Combine Ids</label>
+        <locationX>176</locationX>
+        <locationY>242</locationY>
+        <assignmentItems>
+            <assignToReference>allIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>ids</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>allIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>recordId</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Copy_1_of_Display_Vars</targetReference>
+        </connector>
+    </assignments>
+    <description>Flow testing:
+- getting input from Buttons and Actions
+- Passing those values to a call to an Apex method</description>
+    <environments>Default</environments>
+    <interviewLabel>test flow 2 {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>test flow 2</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <screens>
+        <name>Ack_Workflow_Result</name>
+        <label>Ack Workflow Result</label>
+        <locationX>176</locationX>
+        <locationY>566</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>true</allowPause>
+        <fields>
+            <name>Acknowledgement_Result</name>
+            <fieldText>&lt;p&gt;&lt;strong style=&quot;font-size: 16px;&quot;&gt;Acknowledgement Result&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;{!Send_Acknowledgements.result}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>false</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
+        <name>Copy_1_of_Display_Vars</name>
+        <label>Copy 1 of Display Vars</label>
+        <locationX>176</locationX>
+        <locationY>350</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>true</allowPause>
+        <connector>
+            <targetReference>Send_Acknowledgements</targetReference>
+        </connector>
+        <fields>
+            <name>Copy_1_of_text_window</name>
+            <fieldText>&lt;p&gt;recordId={!recordId}&lt;/p&gt;&lt;p&gt;ids={!ids}&lt;/p&gt;&lt;p&gt;allIds={!allIds}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
+        <name>Display_Vars</name>
+        <label>Display Vars</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>true</allowPause>
+        <connector>
+            <targetReference>Combine_Ids</targetReference>
+        </connector>
+        <fields>
+            <name>text_window</name>
+            <fieldText>&lt;p&gt;recordId={!recordId}&lt;/p&gt;&lt;p&gt;ids={!ids}&lt;/p&gt;&lt;p&gt;allIds={!allIds}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Display_Vars</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>allIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <description>This field is populated when the workflow is called via a Button from an Opportunity list view</description>
+        <name>ids</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <description>This field is populated when the workflow is called via an Action from a single Opportunity record</description>
+        <name>recordId</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+</Flow>
