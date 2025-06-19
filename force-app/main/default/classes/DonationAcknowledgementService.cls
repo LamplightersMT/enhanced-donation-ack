@@ -13,7 +13,7 @@ public with sharing class DonationAcknowledgementService {
 
   // Instance variables for template devname and folder, default to current values
   @TestVisible
-  static String donationAckTemplateDevName = 'TempDonationAck';
+  static String donationAckTemplateDevName = 'StaticDonationAcknowledgement';
   @TestVisible
   static String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
 
