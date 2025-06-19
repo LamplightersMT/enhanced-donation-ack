@@ -11,18 +11,16 @@ This Salesforce project automates email acknowledgements for donations, similar 
 ## Setup
 
 1. Deploy metadata to your Salesforce org
-1. Configure email template: `Setup > Classic Email Templates`
-   - Set `TempDonationAck` template as "available for use"
 1. Make sure that `Email > Deliverability` Access Level is "All Email"
 1. Add buttons and panels to the Opportunity object
-   1. Add `Mobile & Lightning Actions > Bulk Ack (Action)` button to the Opportunity page layout
-   1. Add "Bulk Ack (Button)" button to `List View Buttons Layout > Opportunities List View`
+   1. Add `Mobile & Lightning Actions > Email Acknowledgement` button to the Opportunity page layout
+   1. Add "Email Acknowledgements" button to `List View Buttons Layout > Opportunities List View`
    1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel to the "Related" tab
 
 ## Next Steps
 
-- Correct email template
-- Update package manifest properly
+- Set acknowledgement date on Opportunity
+- Use modern email template
 
 ## Future Roadmap
 

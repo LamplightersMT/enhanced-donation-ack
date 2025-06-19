@@ -1,7 +1,7 @@
 import { createElement } from "lwc";
-import SendAckButton from "../sendAckButton";
+import AcknowledgeDonationButton from "../acknowledgeDonationButton";
 
-describe("c-send-ack-button", () => {
+describe("c-acknowledge-donation-button", () => {
   afterEach(() => {
     // Clean up DOM
     while (document.body.firstChild) {
@@ -10,8 +10,8 @@ describe("c-send-ack-button", () => {
   });
 
   it("renders without error", () => {
-    const element = createElement("c-send-ack-button", {
-      is: SendAckButton
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
     });
     document.body.appendChild(element);
     expect(element).toBeDefined();

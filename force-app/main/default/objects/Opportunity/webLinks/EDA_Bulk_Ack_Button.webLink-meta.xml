@@ -1,14 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <WebLink xmlns="https://soap.sforce.com/2006/04/metadata">
-    <fullName>Bulk_Ack_Button</fullName>
+    <fullName>EDA_Bulk_Ack_Button</fullName>
     <availability>online</availability>
     <displayType>massActionButton</displayType>
     <encodingKey>UTF-8</encodingKey>
     <height>600</height>
     <linkType>url</linkType>
-    <masterLabel>Bulk Ack (Button)</masterLabel>
+    <masterLabel>Acknowledge Donations</masterLabel>
     <openType>sidebar</openType>
     <protected>false</protected>
     <requireRowSelection>true</requireRowSelection>
-    <url>/flow/test_flow_2?retURL={!$Site.CurrentSiteUrl}</url>
+    <url
+  >/flow/Enhanced_Donation_Acknowledgement?retURL={!$Site.CurrentSiteUrl}</url>
 </WebLink>

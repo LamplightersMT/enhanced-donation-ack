@@ -13,7 +13,7 @@ public with sharing class DonationAcknowledgementService {
 
   // Instance variables for template devname and folder, default to current values
   @TestVisible
-  static String donationAckTemplateDevName = 'TempDonationAck';
+  static String donationAckTemplateDevName = 'StaticDonationAcknowledgement';
   @TestVisible
   static String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
 
@@ -85,7 +85,9 @@ public with sharing class DonationAcknowledgementService {
         opps.size() +
         ' Opportunities. Emails sent: ' +
         sentCount +
-        ' (Template used if found)';
+        ' (Template used: ' +
+        donationAckTemplateDevName +
+        ')';
     } catch (Exception ex) {
       // FIXME: Test relies on this exception handling, which could catch too many errors
       System.debug(

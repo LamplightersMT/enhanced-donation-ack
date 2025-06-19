@@ -6,11 +6,11 @@
         <name>ApexClass</name>
     </types>
     <types>
-        <members>sendAckButton</members>
+        <members>acknowledgeDonationButton</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
-        <members>test_flow_2</members>
+        <members>Enhanced_Donation_Acknowledgement</members>
         <name>Flow</name>
     </types>
     <types>
@@ -18,7 +18,7 @@
         <name>QuickAction</name>
     </types>
     <types>
-        <members>Opportunity.Bulk_Ack_Button</members>
+        <members>Opportunity.EDA_Bulk_Ack_Button</members>
         <name>WebLink</name>
     </types>
     <types>
@@ -26,7 +26,8 @@
         <name>EmailFolder</name>
     </types>
     <types>
-        <members>EnhancedDonationAcknowledgements/TempDonationAck</members>
+        <members
+    >EnhancedDonationAcknowledgements/StaticDonationAcknowledgement</members>
         <name>EmailTemplate</name>
     </types>
     <version>60.0</version>
