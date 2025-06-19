@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <QuickAction xmlns="https://soap.sforce.com/2006/04/metadata">
-    <flowDefinition>test_flow_2</flowDefinition>
+    <flowDefinition>Enhanced_Donation_Acknowledgement</flowDefinition>
     <label>Bulk Ack (Action)</label>
     <optionsCreateFeedItem>false</optionsCreateFeedItem>
     <type>Flow</type>

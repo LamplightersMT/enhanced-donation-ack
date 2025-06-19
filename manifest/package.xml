@@ -10,7 +10,7 @@
         <name>LightningComponentBundle</name>
     </types>
     <types>
-        <members>test_flow_2</members>
+        <members>Enhanced_Donation_Acknowledgement</members>
         <name>Flow</name>
     </types>
     <types>

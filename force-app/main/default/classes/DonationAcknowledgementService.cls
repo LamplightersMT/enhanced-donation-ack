@@ -85,7 +85,9 @@ public with sharing class DonationAcknowledgementService {
         opps.size() +
         ' Opportunities. Emails sent: ' +
         sentCount +
-        ' (Template used if found)';
+        ' (Template used: ' +
+        donationAckTemplateDevName +
+        ')';
     } catch (Exception ex) {
       // FIXME: Test relies on this exception handling, which could catch too many errors
       System.debug(
