@@ -143,10 +143,14 @@ public with sharing class DonationAcknowledgementService {
       [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
     );
 
+    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+
     for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
         Contact c = contactMap.get(opp.ContactId);
         if (c != null && c.Email != null) {
+          oppsToUpdate.add(opp);
+
           Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
           mail.setTemplateId(templateId);
           mail.setTargetObjectId(c.Id);
@@ -174,6 +178,7 @@ public with sharing class DonationAcknowledgementService {
     }
     if (!emails.isEmpty()) {
       Messaging.sendEmail(emails);
+      updateAcknowledgementDates(oppsToUpdate);
     }
     return sentCount;
   }
@@ -202,10 +207,15 @@ public with sharing class DonationAcknowledgementService {
     Map<Id, Contact> contactMap = new Map<Id, Contact>(
       [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
     );
+
+    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+
     for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
         Contact c = contactMap.get(opp.ContactId);
         if (c != null && c.Email != null) {
+          oppsToUpdate.add(opp);
+
           Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
           mail.setToAddresses(new List<String>{ c.Email });
           mail.setSubject(subject);
@@ -234,7 +244,26 @@ public with sharing class DonationAcknowledgementService {
     }
     if (!emails.isEmpty()) {
       Messaging.sendEmail(emails);
+      updateAcknowledgementDates(oppsToUpdate);
     }
     return sentCount;
+  }
+
+  /**
+   * Helper to update npsp__Acknowledgment_Date__c for Opportunities that were actually emailed
+   */
+  private static void updateAcknowledgementDates(List<Opportunity> opps) {
+    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+    Date today = Date.today();
+    for (Opportunity opp : opps) {
+      Opportunity oppUpdate = new Opportunity(
+        Id = opp.Id,
+        npsp__Acknowledgment_Date__c = today
+      );
+      oppsToUpdate.add(oppUpdate);
+    }
+    if (!oppsToUpdate.isEmpty()) {
+      update oppsToUpdate;
+    }
   }
 }
