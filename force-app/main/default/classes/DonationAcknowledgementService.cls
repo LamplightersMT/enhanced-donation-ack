@@ -36,10 +36,7 @@ public with sharing class DonationAcknowledgementService {
    * @param inputList List of OpportunityIdWrapper
    * @return List of AckResultWrapper with status messages
    */
-  @InvocableMethod(
-    label='Send Donation Acknowledgements'
-    description='Sends acknowledgement emails for selected Opportunities and creates EmailMessage records.'
-  )
+  @InvocableMethod
   public static List<AckResultWrapper> sendAcknowledgementsInvocable(
     List<OpportunityIdWrapper> inputList
   ) {
@@ -133,16 +130,21 @@ public with sharing class DonationAcknowledgementService {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     Integer sentCount = 0;
     Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+    // Bulk query for all Contacts related to the Opportunities
+    Set<Id> contactIds = new Set<Id>();
     for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
-        // TODO: Should be bulk query for all opps?
-        Contact c = [
-          SELECT Id, Email
-          FROM Contact
-          WHERE Id = :opp.ContactId
-          LIMIT 1
-        ];
-        if (c.Email != null) {
+        contactIds.add(opp.ContactId);
+      }
+    }
+    Map<Id, Contact> contactMap = new Map<Id, Contact>(
+      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
+    );
+
+    for (Opportunity opp : opps) {
+      if (opp.ContactId != null) {
+        Contact c = contactMap.get(opp.ContactId);
+        if (c != null && c.Email != null) {
           Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
           mail.setTemplateId(templateId);
           mail.setTargetObjectId(c.Id);
@@ -153,8 +155,13 @@ public with sharing class DonationAcknowledgementService {
           System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
           emails.add(mail);
           sentCount++;
-        } else {
+        } else if (c != null) {
           System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
+        } else {
+          System.debug(
+            LoggingLevel.WARN,
+            'Contact not found for Opportunity ' + opp.Id
+          );
         }
       } else {
         System.debug(
@@ -183,15 +190,20 @@ public with sharing class DonationAcknowledgementService {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     Integer sentCount = 0;
     Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+    // Bulk query for all Contacts related to the Opportunities
+    Set<Id> contactIds = new Set<Id>();
     for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
-        Contact c = [
-          SELECT Id, Email
-          FROM Contact
-          WHERE Id = :opp.ContactId
-          LIMIT 1
-        ];
-        if (c.Email != null) {
+        contactIds.add(opp.ContactId);
+      }
+    }
+    Map<Id, Contact> contactMap = new Map<Id, Contact>(
+      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
+    );
+    for (Opportunity opp : opps) {
+      if (opp.ContactId != null) {
+        Contact c = contactMap.get(opp.ContactId);
+        if (c != null && c.Email != null) {
           Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
           mail.setToAddresses(new List<String>{ c.Email });
           mail.setSubject(subject);
@@ -203,8 +215,13 @@ public with sharing class DonationAcknowledgementService {
           }
           emails.add(mail);
           sentCount++;
-        } else {
+        } else if (c != null) {
           System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
+        } else {
+          System.debug(
+            LoggingLevel.WARN,
+            'Contact not found for Opportunity ' + opp.Id
+          );
         }
       } else {
         System.debug(
