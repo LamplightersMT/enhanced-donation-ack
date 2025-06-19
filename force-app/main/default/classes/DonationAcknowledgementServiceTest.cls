@@ -38,6 +38,17 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
     System.assertEquals(1, result.size());
     System.assert(result[0].result.contains('Emails sent: 1'));
+    // Verify acknowledgement date is set
+    Opportunity updatedOpp = [
+      SELECT Id, npsp__Acknowledgment_Date__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      Date.today(), // FIXME: Fragile test, will break if run on a different day
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgement date should be set to today'
+    );
   }
 
   @isTest
@@ -58,6 +69,17 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
     System.assertEquals(1, result.size());
     System.assert(result[0].result.contains('Static content fallback'));
+    // Verify acknowledgement date is set
+    Opportunity updatedOpp = [
+      SELECT Id, npsp__Acknowledgment_Date__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      Date.today(), // FIXME: Fragile test, will break if run on a different day
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgement date should be set to today'
+    );
   }
 
   @isTest
