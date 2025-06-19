@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    See: https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_emailtemplate.htm
+-->
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <encodingKey>UTF-8</encodingKey>
+    <letterhead
+  >Enhanced_Donation_Acknowledgements_Example_Letterhead</letterhead>
+    <name>HTML Donation Acknowledgement</name>
+    <style>freeForm</style>
+    <subject>Thank you!</subject>
+    <textOnly>Dear {!Opportunity.npsp__Primary_Contact__c},
+
+Thank you for your gift of {!Opportunity.Amount} on {!Opportunity.CloseDate}.
+
+We greatly appreciate your support!
+
+From all of us at {!Organization.Name}</textOnly>
+    <type>html</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

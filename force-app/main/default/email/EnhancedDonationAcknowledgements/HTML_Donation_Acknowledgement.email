@@ -1,0 +1,6 @@
+<table border="0" cellpadding="5" width="550" cellspacing="5" height="400" >
+<tr valign="top" height="400" >
+<td tEditID="c1r1" style=" background-color:#FFFFFF; color:#000000; bEditID:r3st1; bLabel:main; font-size:12pt; font-family:arial;" aEditID="c1r1" locked="0" >
+<![CDATA[<font size="4" face="Verdana, Helvetica, sans-serif"><font><span style="background-color: rgb(255, 255, 255);">Dear </span></font><span style="background-color: rgb(255, 255, 255);">{!Opportunity.npsp__Primary_Contact__c},</span></font><div><font size="4" face="Verdana, Helvetica, sans-serif"><br></font></div><div><font size="4" face="Verdana, Helvetica, sans-serif">Thank you for your gift of&nbsp;<span style="background-color: rgb(255, 255, 255);">{!Opportunity.Amount} on&nbsp;</span><span style="background-color: rgb(255, 255, 255);">{!Opportunity.CloseDate}.&nbsp;</span></font></div><div><font size="4" face="Verdana, Helvetica, sans-serif"><br></font></div><div><font size="4" face="Verdana, Helvetica, sans-serif">We greatly appreciate your support!<br></font><div><font size="4" face="Verdana, Helvetica, sans-serif"><br></font></div></div><div><font size="4" face="Verdana, Helvetica, sans-serif">From all of us at&nbsp;{!Organization.Name}</font></div>]]></td>
+</tr>
+</table>
