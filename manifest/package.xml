@@ -27,8 +27,12 @@
     </types>
     <types>
         <members
-    >EnhancedDonationAcknowledgements/StaticDonationAcknowledgement</members>
+    >EnhancedDonationAcknowledgements/HTML_Donation_Acknowledgement</members>
         <name>EmailTemplate</name>
+    </types>
+    <types>
+        <members>Enhanced_Donation_Acknowledgements_Example_Letterhead</members>
+        <name>Letterhead</name>
     </types>
     <version>60.0</version>
 </Package>
