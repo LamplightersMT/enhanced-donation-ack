@@ -6,7 +6,7 @@
         <name>ApexClass</name>
     </types>
     <types>
-        <members>sendAckButton</members>
+        <members>acknowledgeDonationButton</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
@@ -18,7 +18,7 @@
         <name>QuickAction</name>
     </types>
     <types>
-        <members>Opportunity.Bulk_Ack_Button</members>
+        <members>Opportunity.EDA_Bulk_Ack_Button</members>
         <name>WebLink</name>
     </types>
     <types>
