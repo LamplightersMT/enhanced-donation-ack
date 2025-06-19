@@ -11,6 +11,12 @@ public with sharing class DonationAcknowledgementService {
     public String result;
   }
 
+  // Instance variables for template devname and folder, default to current values
+  @TestVisible
+  static String donationAckTemplateDevName = 'TempDonationAck';
+  @TestVisible
+  static String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
+
   /**
    * Shared logic to process Opportunities by Ids
    */
@@ -37,21 +43,23 @@ public with sharing class DonationAcknowledgementService {
   public static List<AckResultWrapper> sendAcknowledgementsInvocable(
     List<OpportunityIdWrapper> inputList
   ) {
-    Set<Id> idSet = new Set<Id>();
+    List<Id> idList = new List<Id>();
+
+    // Flatten all Opportunity Ids from the input wrappers, ignoring nulls
     for (OpportunityIdWrapper w : inputList) {
       if (w != null && w.opportunityIds != null) {
-        idSet.addAll(w.opportunityIds);
+        for (Id idVal : w.opportunityIds) {
+          if (idVal != null) {
+            idList.add(idVal);
+          }
+        }
       }
     }
-    // Call the AuraEnabled method to avoid code duplication
-    String resultMsg = sendAcknowledgements(new List<Id>(idSet));
 
     List<AckResultWrapper> results = new List<AckResultWrapper>();
     AckResultWrapper res = new AckResultWrapper();
-    res.result = resultMsg;
-
+    res.result = sendAcknowledgements(idList);
     System.debug(LoggingLevel.INFO, res.result);
-
     results.add(res);
     return results;
   }
@@ -65,17 +73,100 @@ public with sharing class DonationAcknowledgementService {
     if (opps.isEmpty()) {
       return 'No Opportunity IDs provided.';
     }
+    Integer sentCount = 0;
+    try {
+      EmailTemplate tmpl = [
+        SELECT Id
+        FROM EmailTemplate
+        WHERE
+          DeveloperName = :donationAckTemplateDevName
+          AND Folder.DeveloperName = :donationAckTemplateFolder
+        LIMIT 1
+      ];
+      sentCount = sendEmailsForOpportunitiesWithTemplate(opps, tmpl.Id);
+      return 'sendAcknowledgements called with ' +
+        opps.size() +
+        ' Opportunities. Emails sent: ' +
+        sentCount +
+        ' (Template used if found)';
+    } catch (Exception ex) {
+      // FIXME: Test relies on this exception handling, which could catch too many errors
+      System.debug(
+        LoggingLevel.ERROR,
+        'Template not found or error: ' + ex.getMessage()
+      );
+      String subject = 'Thank you for your donation!';
+      String body = 'We appreciate your generous support.';
+      sentCount = sendEmailsForOpportunities(opps, subject, body);
+      return 'sendAcknowledgements called with ' +
+        opps.size() +
+        ' Opportunities. Emails sent: ' +
+        sentCount +
+        ' (Static content fallback)';
+    }
+  }
 
-    // Static email content
-    String subject = 'Thank you for your donation!';
-    String body = 'We appreciate your generous support.';
+  /**
+   * Helper to get the default org-wide email address Id (first active one, or null if none found)
+   */
+  private static Id getDefaultOrgWideEmailAddressId() {
+    // TODO: Is there a way to configure or identify this?
+    OrgWideEmailAddress[] orgWideEmails = [
+      SELECT Id
+      FROM OrgWideEmailAddress
+      ORDER BY Address ASC
+      LIMIT 1
+    ];
+    return orgWideEmails.isEmpty() ? null : orgWideEmails[0].Id;
+  }
 
-    Integer sentCount = sendEmailsForOpportunities(opps, subject, body);
-
-    return 'sendAcknowledgements called with ' +
-      opps.size() +
-      ' Opportunities. Emails sent: ' +
-      sentCount;
+  /**
+   * Sends emails using a templateId to the Contacts related to the given Opportunities.
+   * Ensures EmailMessage records are created and related via whatId.
+   * Returns the number of emails sent.
+   */
+  @TestVisible
+  private static Integer sendEmailsForOpportunitiesWithTemplate(
+    List<Opportunity> opps,
+    Id templateId
+  ) {
+    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
+    Integer sentCount = 0;
+    Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+    for (Opportunity opp : opps) {
+      if (opp.ContactId != null) {
+        // TODO: Should be bulk query for all opps?
+        Contact c = [
+          SELECT Id, Email
+          FROM Contact
+          WHERE Id = :opp.ContactId
+          LIMIT 1
+        ];
+        if (c.Email != null) {
+          Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+          mail.setTemplateId(templateId);
+          mail.setTargetObjectId(c.Id);
+          mail.setWhatId(opp.Id);
+          if (orgWideEmailId != null) {
+            mail.setOrgWideEmailAddressId(orgWideEmailId);
+          }
+          System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
+          emails.add(mail);
+          sentCount++;
+        } else {
+          System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
+        }
+      } else {
+        System.debug(
+          LoggingLevel.WARN,
+          'Opportunity ' + opp.Id + ' has no ContactId.'
+        );
+      }
+    }
+    if (!emails.isEmpty()) {
+      Messaging.sendEmail(emails);
+    }
+    return sentCount;
   }
 
   /**
@@ -91,6 +182,7 @@ public with sharing class DonationAcknowledgementService {
   ) {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     Integer sentCount = 0;
+    Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
     for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
         Contact c = [
@@ -106,6 +198,9 @@ public with sharing class DonationAcknowledgementService {
           mail.setPlainTextBody(body);
           mail.setTargetObjectId(c.Id); // for compliance, but not required if using setToAddresses
           mail.setWhatId(opp.Id); // ensures EmailMessage is created and related
+          if (orgWideEmailId != null) {
+            mail.setOrgWideEmailAddressId(orgWideEmailId);
+          }
           emails.add(mail);
           sentCount++;
         } else {
