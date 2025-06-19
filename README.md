@@ -19,7 +19,8 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 ## Next Steps
 
-- Set acknowledgement date on Opportunity
+- Check whether an opportunity has already been acknowledged
+- Add resend feature
 - Use modern email template
 
 ## Future Roadmap
