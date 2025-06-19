@@ -1,0 +1,6 @@
+Dear {!Contact.Name},
+
+Thank you for your generous donation of {!Opportunity.Amount}.
+
+Sincerely,
+The Team

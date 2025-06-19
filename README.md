@@ -3,24 +3,34 @@
 This Salesforce project automates email acknowledgements for donations, similar to the Nonprofit Success Pack (NPSP).
 
 ## Features
+
 - Apex classes and triggers for donation acknowledgement
 - Email template support
 - Logging of sent acknowledgements
 
 ## Setup
+
 1. Deploy metadata to your Salesforce org
-2. Configure email templates
-3. Assign permissions as needed
+1. Configure email template: `Setup > Classic Email Templates`
+   - Set `TempDonationAck` template as "available for use"
+1. Make sure that `Email > Deliverability` Access Level is "All Email"
+1. Add buttons and panels to the Opportunity object
+   1. Add `Mobile & Lightning Actions > Bulk Ack (Action)` button to the Opportunity page layout
+   1. Add "Bulk Ack (Button)" button to `List View Buttons Layout > Opportunities List View`
+   1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel to the "Related" tab
 
 ## Next Steps
-- Implement Apex logic for sending emails
-- Add logging and error handling
+
+- Correct email template
+- Update package manifest properly
 
 ## Future Roadmap
-* Add option to edit email before sending
-* Add option to select different email templates
-* Lightning Web Components for configuration
+
+- Add option to edit email before sending
+- Add option to select different email templates
+- Lightning Web Components for configuration
 
 ## Notes
-* [How to use Flows for List View Records](https://www.accidentalcodersf.com/2020/07/use-flows-from-list-views-salesforce.html)
-    * [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)
+
+- [How to use Flows for List View Records](https://www.accidentalcodersf.com/2020/07/use-flows-from-list-views-salesforce.html)
+  - [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)

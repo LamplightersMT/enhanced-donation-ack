@@ -1,76 +1,78 @@
 @isTest
 private class DonationAcknowledgementServiceTest {
-  @isTest
-  static void testSendAcknowledgementsInvocable_emptyInput() {
-    // Arrange
-    List<DonationAcknowledgementService.OpportunityIdWrapper> inputList = new List<DonationAcknowledgementService.OpportunityIdWrapper>();
-    // Act
-    List<DonationAcknowledgementService.AckResultWrapper> results = DonationAcknowledgementService.sendAcknowledgementsInvocable(
-      inputList
+  @testSetup
+  static void setupTestData() {
+    // Create test Contact
+    Contact c = new Contact(
+      FirstName = 'Test',
+      LastName = 'User',
+      Email = 'testuser@example.com'
     );
-    // Assert
-    System.assertEquals(1, results.size(), 'Should return one result');
-    System.assertEquals('No Opportunity IDs provided.', results[0].result);
+    insert c;
+    // Create test Opportunity
+    Opportunity opp = new Opportunity(
+      Name = 'Test Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today(),
+      Amount = 100,
+      ContactId = c.Id
+    );
+    insert opp;
+    // (Do NOT create OrgWideEmailAddress here; not allowed in Apex tests)
+    // Create EmailTemplate in correct folder
+    // (Assume template/folder already deployed in metadata, so just query in test)
   }
 
   @isTest
-  static void testSendAcknowledgementsInvocable_withIds() {
-    // Arrange
-    Account a = new Account(Name = 'Test Account');
-    insert a;
-    Opportunity o = new Opportunity(
-      Name = 'Test Opp',
-      StageName = 'Prospecting',
-      CloseDate = Date.today(),
-      AccountId = a.Id
-    );
-    insert o;
+  static void testSendAcknowledgementsWithTemplate() {
+    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     DonationAcknowledgementService.OpportunityIdWrapper wrapper = new DonationAcknowledgementService.OpportunityIdWrapper();
-    wrapper.opportunityIds = new List<Id>{ o.Id };
-    List<DonationAcknowledgementService.OpportunityIdWrapper> inputList = new List<DonationAcknowledgementService.OpportunityIdWrapper>{
+    wrapper.opportunityIds = new List<Id>{ opp.Id };
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = new List<DonationAcknowledgementService.OpportunityIdWrapper>{
       wrapper
     };
-    // Act
-    List<DonationAcknowledgementService.AckResultWrapper> results = DonationAcknowledgementService.sendAcknowledgementsInvocable(
-      inputList
+    Test.startTest();
+    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+      input
     );
-    // Assert
-    System.assertEquals(1, results.size(), 'Should return one result');
-    System.assert(
-      results[0]
-        .result.contains('sendAcknowledgements called with 1 Opportunities.')
-    );
+    Test.stopTest();
+    System.assertEquals(1, result.size());
+    System.assert(result[0].result.contains('Emails sent: 1'));
   }
 
   @isTest
-  static void testSendAcknowledgements_emptyInput() {
-    // Act
-    String result = DonationAcknowledgementService.sendAcknowledgements(
-      new List<Id>()
+  static void testSendAcknowledgementsStaticFallback() {
+    // Set template devname/folder to values that do not exist to force fallback
+    DonationAcknowledgementService.donationAckTemplateDevName = 'DoesNotExistTemplate';
+    DonationAcknowledgementService.donationAckTemplateFolder = 'DoesNotExistFolder';
+    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+    DonationAcknowledgementService.OpportunityIdWrapper wrapper = new DonationAcknowledgementService.OpportunityIdWrapper();
+    wrapper.opportunityIds = new List<Id>{ opp.Id };
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = new List<DonationAcknowledgementService.OpportunityIdWrapper>{
+      wrapper
+    };
+    Test.startTest();
+    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+      input
     );
-    // Assert
-    System.assertEquals('No Opportunity IDs provided.', result);
+    Test.stopTest();
+    System.assertEquals(1, result.size());
+    System.assert(result[0].result.contains('Static content fallback'));
   }
 
   @isTest
-  static void testSendAcknowledgements_withIds() {
-    // Arrange
-    Account a = new Account(Name = 'Test Account');
-    insert a;
-    Opportunity o = new Opportunity(
-      Name = 'Test Opp',
-      StageName = 'Prospecting',
-      CloseDate = Date.today(),
-      AccountId = a.Id
+  static void testNoOpportunities() {
+    DonationAcknowledgementService.OpportunityIdWrapper wrapper = new DonationAcknowledgementService.OpportunityIdWrapper();
+    wrapper.opportunityIds = new List<Id>();
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = new List<DonationAcknowledgementService.OpportunityIdWrapper>{
+      wrapper
+    };
+    Test.startTest();
+    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+      input
     );
-    insert o;
-    // Act
-    String result = DonationAcknowledgementService.sendAcknowledgements(
-      new List<Id>{ o.Id }
-    );
-    // Assert
-    System.assert(
-      result.contains('sendAcknowledgements called with 1 Opportunities.')
-    );
+    Test.stopTest();
+    System.assertEquals(1, result.size());
+    System.assertEquals('No Opportunity IDs provided.', result[0].result);
   }
 }
