@@ -11,24 +11,91 @@ public with sharing class DonationAcknowledgementService {
     public String result;
   }
 
-  // Enhanced result class for detailed feedback on email sending operations
+  // Enum for acknowledgement status codes
+  public enum AckStatus {
+    SUCCESS,
+    ALREADY_ACKNOWLEDGED,
+    NO_CONTACT,
+    NO_EMAIL,
+    EMAIL_SEND_FAILED,
+    INVALID_OPPORTUNITY
+  }
+
+  // Individual opportunity result with detailed tracking
   @TestVisible
-  public class EmailSendResult {
+  public class OpportunityResult {
+    public Id opportunityId;
+    public String opportunityName;
+    public AckStatus status;
+    public String reason;
+    public String contactEmail;
+    public Date acknowledgmentDate;
+
+    public OpportunityResult(Id oppId, String oppName) {
+      this.opportunityId = oppId;
+      this.opportunityName = oppName;
+    }
+
+    public void setStatus(AckStatus status, String reason) {
+      this.status = status;
+      this.reason = reason;
+    }
+
+    public Boolean isSuccess() {
+      return this.status == AckStatus.SUCCESS;
+    }
+
+    public Boolean isSkipped() {
+      return this.status == AckStatus.ALREADY_ACKNOWLEDGED ||
+        this.status == AckStatus.NO_CONTACT ||
+        this.status == AckStatus.NO_EMAIL;
+    }
+
+    public Boolean isFailed() {
+      return this.status == AckStatus.EMAIL_SEND_FAILED ||
+        this.status == AckStatus.INVALID_OPPORTUNITY;
+    }
+  }
+
+  // Detailed acknowledgement result with individual opportunity tracking
+  @TestVisible
+  public class DetailedAckResult {
     public Integer totalOpportunities;
     public Integer emailsSent;
     public Integer alreadyAcknowledged;
     public Integer noValidContact;
-    public List<String> skippedOpportunityNames;
+    public Integer emailSendFailures;
+    public List<OpportunityResult> opportunityResults;
+    public String emailType;
 
-    public EmailSendResult() {
+    public DetailedAckResult() {
       this.totalOpportunities = 0;
       this.emailsSent = 0;
       this.alreadyAcknowledged = 0;
       this.noValidContact = 0;
-      this.skippedOpportunityNames = new List<String>();
+      this.emailSendFailures = 0;
+      this.opportunityResults = new List<OpportunityResult>();
     }
 
-    public String buildSummaryMessage(String emailType) {
+    public void addOpportunityResult(OpportunityResult oppResult) {
+      this.opportunityResults.add(oppResult);
+      this.totalOpportunities++;
+
+      if (oppResult.isSuccess()) {
+        this.emailsSent++;
+      } else if (oppResult.status == AckStatus.ALREADY_ACKNOWLEDGED) {
+        this.alreadyAcknowledged++;
+      } else if (
+        oppResult.status == AckStatus.NO_CONTACT ||
+        oppResult.status == AckStatus.NO_EMAIL
+      ) {
+        this.noValidContact++;
+      } else if (oppResult.status == AckStatus.EMAIL_SEND_FAILED) {
+        this.emailSendFailures++;
+      }
+    }
+
+    public String buildSummaryMessage() {
       String message =
         'sendAcknowledgements called with ' +
         totalOpportunities +
@@ -43,8 +110,45 @@ public with sharing class DonationAcknowledgementService {
         message += ', No valid contact: ' + noValidContact;
       }
 
-      message += ' (' + emailType + ')';
+      if (emailSendFailures > 0) {
+        message += ', Email send failures: ' + emailSendFailures;
+      }
+
+      if (emailType != null) {
+        message += ' (' + emailType + ')';
+      }
+
       return message;
+    }
+
+    public List<OpportunityResult> getSuccessfulResults() {
+      List<OpportunityResult> successful = new List<OpportunityResult>();
+      for (OpportunityResult result : opportunityResults) {
+        if (result.isSuccess()) {
+          successful.add(result);
+        }
+      }
+      return successful;
+    }
+
+    public List<OpportunityResult> getSkippedResults() {
+      List<OpportunityResult> skipped = new List<OpportunityResult>();
+      for (OpportunityResult result : opportunityResults) {
+        if (result.isSkipped()) {
+          skipped.add(result);
+        }
+      }
+      return skipped;
+    }
+
+    public List<OpportunityResult> getFailedResults() {
+      List<OpportunityResult> failed = new List<OpportunityResult>();
+      for (OpportunityResult result : opportunityResults) {
+        if (result.isFailed()) {
+          failed.add(result);
+        }
+      }
+      return failed;
     }
   }
 
@@ -117,12 +221,9 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * Invocable method for Flows and list view buttons
-   * @param inputList List of OpportunityIdWrapper
-   * @return List of AckResultWrapper with status messages
+   * Helper to extract opportunity IDs from wrapper input, flattening and filtering nulls
    */
-  @InvocableMethod
-  public static List<AckResultWrapper> sendAcknowledgementsInvocable(
+  private static List<Id> extractOpportunityIds(
     List<OpportunityIdWrapper> inputList
   ) {
     List<Id> idList = new List<Id>();
@@ -137,6 +238,19 @@ public with sharing class DonationAcknowledgementService {
         }
       }
     }
+    return idList;
+  }
+
+  /**
+   * Invocable method for Flows and list view buttons
+   * @param inputList List of OpportunityIdWrapper
+   * @return List of AckResultWrapper with status messages
+   */
+  @InvocableMethod
+  public static List<AckResultWrapper> sendAcknowledgementsInvocable(
+    List<OpportunityIdWrapper> inputList
+  ) {
+    List<Id> idList = extractOpportunityIds(inputList);
 
     List<AckResultWrapper> results = new List<AckResultWrapper>();
     AckResultWrapper res = new AckResultWrapper();
@@ -156,7 +270,7 @@ public with sharing class DonationAcknowledgementService {
       return 'No Opportunity IDs provided.';
     }
 
-    EmailSendResult result;
+    DetailedAckResult result;
     try {
       EmailTemplate tmpl = [
         SELECT Id
@@ -167,10 +281,8 @@ public with sharing class DonationAcknowledgementService {
         LIMIT 1
       ];
       EmailConfig config = new EmailConfig(tmpl.Id);
-      result = sendEmailsCoreWithResult(opps, config);
-      return result.buildSummaryMessage(
-        'Template used: ' + donationAckTemplateDevName
-      );
+      result = sendEmailsCoreDetailed(opps, config);
+      result.emailType = 'Template used: ' + donationAckTemplateDevName;
     } catch (Exception ex) {
       // FIXME: Test relies on this exception handling, which could catch too many errors
       System.debug(
@@ -180,9 +292,64 @@ public with sharing class DonationAcknowledgementService {
       String subject = 'Thank you for your donation!';
       String body = 'We appreciate your generous support.';
       EmailConfig config = new EmailConfig(subject, body);
-      result = sendEmailsCoreWithResult(opps, config);
-      return result.buildSummaryMessage('Static content fallback');
+      result = sendEmailsCoreDetailed(opps, config);
+      result.emailType = 'Static content fallback';
     }
+    return result.buildSummaryMessage();
+  }
+
+  /**
+   * Enhanced AuraEnabled method that returns detailed results for advanced consumers (LWC)
+   * @param idList List of Opportunity IDs to process
+   * @return DetailedAckResult with individual opportunity tracking and aggregated counts
+   */
+  @AuraEnabled
+  public static DetailedAckResult sendAcknowledgementsDetailed(
+    List<Id> idList
+  ) {
+    List<Opportunity> opps = getOpportunitiesByIds(idList);
+    if (opps.isEmpty()) {
+      DetailedAckResult emptyResult = new DetailedAckResult();
+      emptyResult.emailType = 'No opportunities provided';
+      return emptyResult;
+    }
+
+    DetailedAckResult result;
+    try {
+      EmailTemplate tmpl = [
+        SELECT Id
+        FROM EmailTemplate
+        WHERE
+          DeveloperName = :donationAckTemplateDevName
+          AND Folder.DeveloperName = :donationAckTemplateFolder
+        LIMIT 1
+      ];
+      EmailConfig config = new EmailConfig(tmpl.Id);
+      result = sendEmailsCoreDetailed(opps, config);
+      result.emailType = 'Template used: ' + donationAckTemplateDevName;
+    } catch (Exception ex) {
+      System.debug(
+        LoggingLevel.ERROR,
+        'Template not found or error: ' + ex.getMessage()
+      );
+      String subject = 'Thank you for your donation!';
+      String body = 'We appreciate your generous support.';
+      EmailConfig config = new EmailConfig(subject, body);
+      result = sendEmailsCoreDetailed(opps, config);
+      result.emailType = 'Static content fallback';
+    }
+    return result;
+  }
+
+  /**
+   * Method to get individual opportunity results for LWC consumption
+   * @param idList List of Opportunity IDs to process
+   * @return List of OpportunityResult with detailed status and reason for each opportunity
+   */
+  @AuraEnabled
+  public static List<OpportunityResult> getOpportunityResults(List<Id> idList) {
+    DetailedAckResult detailedResult = sendAcknowledgementsDetailed(idList);
+    return detailedResult.opportunityResults;
   }
 
   /**
@@ -200,39 +367,23 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * Core email sending logic that handles both template and static content emails.
-   * Ensures EmailMessage records are created and related via whatId.
-   * Returns detailed result with counts and feedback.
+   * Core email sending logic with detailed individual opportunity tracking.
+   * Returns DetailedAckResult with specific status and reason codes for each opportunity.
    */
   @TestVisible
-  private static EmailSendResult sendEmailsCoreWithResult(
+  private static DetailedAckResult sendEmailsCoreDetailed(
     List<Opportunity> opps,
     EmailConfig config
   ) {
-    EmailSendResult result = new EmailSendResult();
-    result.totalOpportunities = opps.size();
+    DetailedAckResult detailedResult = new DetailedAckResult();
 
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
+    List<OpportunityResult> successfulOpps = new List<OpportunityResult>();
     Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
 
-    // Filter out already acknowledged opportunities
-    List<Opportunity> unacknowledgedOpps = new List<Opportunity>();
-    for (Opportunity opp : opps) {
-      if (opp.npsp__Acknowledgment_Date__c != null) {
-        result.alreadyAcknowledged++;
-        result.skippedOpportunityNames.add(opp.Name);
-        System.debug(
-          LoggingLevel.INFO,
-          'Skipping already acknowledged opportunity: ' + opp.Name
-        );
-      } else {
-        unacknowledgedOpps.add(opp);
-      }
-    }
-
-    // Bulk query for all Contacts related to the unacknowledged Opportunities
+    // Bulk query for all Contacts related to the Opportunities
     Set<Id> contactIds = new Set<Id>();
-    for (Opportunity opp : unacknowledgedOpps) {
+    for (Opportunity opp : opps) {
       if (opp.ContactId != null) {
         contactIds.add(opp.ContactId);
       }
@@ -241,62 +392,124 @@ public with sharing class DonationAcknowledgementService {
       [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
     );
 
-    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+    // Process each opportunity individually with detailed tracking
+    for (Opportunity opp : opps) {
+      OpportunityResult oppResult = new OpportunityResult(opp.Id, opp.Name);
 
-    for (Opportunity opp : unacknowledgedOpps) {
-      if (opp.ContactId != null) {
-        Contact c = contactMap.get(opp.ContactId);
-        if (c != null && c.Email != null) {
-          oppsToUpdate.add(opp);
+      // Check if already acknowledged
+      if (opp.npsp__Acknowledgment_Date__c != null) {
+        oppResult.setStatus(
+          AckStatus.ALREADY_ACKNOWLEDGED,
+          'Opportunity already acknowledged on ' +
+          opp.npsp__Acknowledgment_Date__c.format()
+        );
+        detailedResult.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.INFO,
+          'Skipping already acknowledged opportunity: ' + opp.Name
+        );
+        continue;
+      }
 
-          Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
-          config.configureEmail(mail, c, opp);
-          if (orgWideEmailId != null) {
-            mail.setOrgWideEmailAddressId(orgWideEmailId);
-          }
-          if (config.useTemplate) {
-            System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
-          }
-          emails.add(mail);
-          result.emailsSent++;
-        } else if (c != null) {
-          result.noValidContact++;
-          result.skippedOpportunityNames.add(opp.Name);
-          System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
-        } else {
-          result.noValidContact++;
-          result.skippedOpportunityNames.add(opp.Name);
-          System.debug(
-            LoggingLevel.WARN,
-            'Contact not found for Opportunity ' + opp.Id
-          );
-        }
-      } else {
-        result.noValidContact++;
-        result.skippedOpportunityNames.add(opp.Name);
+      // Check if has contact
+      if (opp.ContactId == null) {
+        oppResult.setStatus(
+          AckStatus.NO_CONTACT,
+          'Opportunity has no associated Contact'
+        );
+        detailedResult.addOpportunityResult(oppResult);
         System.debug(
           LoggingLevel.WARN,
           'Opportunity ' + opp.Id + ' has no ContactId.'
         );
+        continue;
+      }
+
+      Contact contact = contactMap.get(opp.ContactId);
+      if (contact == null) {
+        oppResult.setStatus(AckStatus.NO_CONTACT, 'Contact not found');
+        detailedResult.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.WARN,
+          'Contact not found for Opportunity ' + opp.Id
+        );
+        continue;
+      }
+
+      // Check if contact has email
+      if (String.isBlank(contact.Email)) {
+        oppResult.setStatus(AckStatus.NO_EMAIL, 'Contact has no email address');
+        detailedResult.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.WARN,
+          'Contact ' + contact.Id + ' has no email.'
+        );
+        continue;
+      }
+
+      // Prepare email for sending
+      oppResult.contactEmail = contact.Email;
+      Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+      config.configureEmail(mail, contact, opp);
+      if (orgWideEmailId != null) {
+        mail.setOrgWideEmailAddressId(orgWideEmailId);
+      }
+
+      emails.add(mail);
+      successfulOpps.add(oppResult);
+
+      if (config.useTemplate) {
+        System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
       }
     }
 
+    // Send emails if any are prepared
     if (!emails.isEmpty()) {
       try {
         Messaging.sendEmail(emails);
-        updateAcknowledgementDates(oppsToUpdate);
+
+        // Mark all prepared opportunities as successful and update acknowledgment dates
+        Date today = Date.today();
+        List<Opportunity> oppsToUpdate = new List<Opportunity>();
+
+        for (OpportunityResult oppResult : successfulOpps) {
+          oppResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
+          oppResult.acknowledgmentDate = today;
+          detailedResult.addOpportunityResult(oppResult);
+
+          oppsToUpdate.add(
+            new Opportunity(
+              Id = oppResult.opportunityId,
+              npsp__Acknowledgment_Date__c = today
+            )
+          );
+        }
+
+        if (!oppsToUpdate.isEmpty()) {
+          update oppsToUpdate;
+        }
       } catch (Exception e) {
         System.debug(
           LoggingLevel.ERROR,
           'Email sending failed: ' + e.getMessage()
         );
-        // Don't update acknowledgment dates if sending failed
+
+        // Mark all prepared opportunities as failed
+        for (OpportunityResult oppResult : successfulOpps) {
+          oppResult.setStatus(
+            AckStatus.EMAIL_SEND_FAILED,
+            'Email sending failed: ' + e.getMessage()
+          );
+          detailedResult.addOpportunityResult(oppResult);
+        }
+
         throw new AuraHandledException(
           'Failed to send acknowledgement emails: ' + e.getMessage()
         );
       }
     }
-    return result;
+
+    return detailedResult;
   }
 
   /**
@@ -304,15 +517,14 @@ public with sharing class DonationAcknowledgementService {
    * Ensures EmailMessage records are created and related via whatId.
    * Returns the number of emails sent.
    *
-   * TODO: Enhance return value to include rich user feedback (template vs static, warnings, etc.)
-   * Currently returns only Integer count - calling methods build user messages separately.
+   * @deprecated Use sendEmailsCoreDetailed() for richer functionality
    */
   @TestVisible
   private static Integer sendEmailsCore(
     List<Opportunity> opps,
     EmailConfig config
   ) {
-    EmailSendResult result = sendEmailsCoreWithResult(opps, config);
+    DetailedAckResult result = sendEmailsCoreDetailed(opps, config);
     return result.emailsSent;
   }
 
