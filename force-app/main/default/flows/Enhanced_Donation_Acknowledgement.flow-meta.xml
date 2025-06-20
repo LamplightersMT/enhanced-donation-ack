@@ -83,7 +83,7 @@
         <fields>
             <name>Acknowledgement_Result</name>
             <fieldText
-      >&lt;p&gt;&lt;strong style=&quot;font-size: 16px;&quot;&gt;Acknowledgement Result&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;{!Send_Acknowledgements.result}&lt;/p&gt;</fieldText>
+      >&lt;p&gt;&lt;strong style=&quot;font-size: 16px;&quot;&gt;Acknowledgement Result&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;{!Send_Acknowledgements.summaryMessage}&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <showFooter>false</showFooter>
