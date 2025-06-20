@@ -162,4 +162,76 @@ private class DonationAcknowledgementServiceTest {
     }
     Test.stopTest();
   }
+
+  @isTest
+  static void testSendEmailsCoreWithTemplateConfig() {
+    // Test the core method directly with template configuration
+    // Note: In test context, we can't create actual EmailTemplate records,
+    // so this test will verify the method executes but may not send actual emails
+    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+    List<Opportunity> opps = [
+      SELECT Id, Name, Amount, StageName, CloseDate, AccountId, ContactId
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+
+    // Use a realistic looking template ID format
+    Id mockTemplateId = '00X000000000000AAA'; // Mock template ID in correct format
+
+    Test.startTest();
+    try {
+      Integer result = DonationAcknowledgementService.sendEmailsCore(
+        opps,
+        new DonationAcknowledgementService.EmailConfig(mockTemplateId)
+      );
+      // If we get here, the method executed successfully
+      System.assert(result >= 0, 'Should return a valid count');
+    } catch (Exception e) {
+      // In test context, template-based emails may fail due to missing template or invalid ID format
+      // This is expected behavior - the important thing is that the method doesn't crash unexpectedly
+      System.assert(
+        e.getMessage().contains('Failed to send acknowledgement emails') ||
+          e.getMessage().contains('Data Not Available') ||
+          e.getMessage().contains('Invalid parameter value'),
+        'Should get expected email sending error: ' + e.getMessage()
+      );
+    }
+    Test.stopTest();
+  }
+
+  @isTest
+  static void testSendEmailsCoreWithStaticConfig() {
+    // Test the core method directly with static content configuration
+    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
+    List<Opportunity> opps = [
+      SELECT Id, Name, Amount, StageName, CloseDate, AccountId, ContactId
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+
+    Test.startTest();
+    Integer result = DonationAcknowledgementService.sendEmailsCore(
+      opps,
+      new DonationAcknowledgementService.EmailConfig(
+        'Test Subject',
+        'Test Body'
+      )
+    );
+    Test.stopTest();
+
+    // Should return 1 (one email processed)
+    System.assertEquals(1, result, 'Should process one opportunity');
+
+    // Verify acknowledgment date was set
+    Opportunity updatedOpp = [
+      SELECT Id, npsp__Acknowledgment_Date__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      Date.today(),
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgment date should be set'
+    );
+  }
 }

@@ -11,6 +11,46 @@ public with sharing class DonationAcknowledgementService {
     public String result;
   }
 
+  // Email configuration class to eliminate code duplication
+  @TestVisible
+  public class EmailConfig {
+    public Id templateId;
+    public String subject;
+    public String body;
+    public Boolean useTemplate;
+
+    // Constructor for template-based emails
+    public EmailConfig(Id templateId) {
+      this.templateId = templateId;
+      this.useTemplate = true;
+    }
+
+    // Constructor for static content emails
+    public EmailConfig(String subject, String body) {
+      this.subject = subject;
+      this.body = body;
+      this.useTemplate = false;
+    }
+
+    // Configure a SingleEmailMessage based on this config
+    public void configureEmail(
+      Messaging.SingleEmailMessage mail,
+      Contact contact,
+      Opportunity opp
+    ) {
+      if (useTemplate) {
+        mail.setTemplateId(templateId);
+        mail.setTargetObjectId(contact.Id);
+      } else {
+        mail.setToAddresses(new List<String>{ contact.Email });
+        mail.setSubject(subject);
+        mail.setPlainTextBody(body);
+        mail.setTargetObjectId(contact.Id); // for compliance
+      }
+      mail.setWhatId(opp.Id); // ensures EmailMessage is created and related
+    }
+  }
+
   // Instance variables for template devname and folder, default to current values
   @TestVisible
   static String donationAckTemplateDevName = 'HTML_Donation_Acknowledgement';
@@ -120,18 +160,22 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * Sends emails using a templateId to the Contacts related to the given Opportunities.
+   * Core email sending logic that handles both template and static content emails.
    * Ensures EmailMessage records are created and related via whatId.
    * Returns the number of emails sent.
+   *
+   * TODO: Enhance return value to include rich user feedback (template vs static, warnings, etc.)
+   * Currently returns only Integer count - calling methods build user messages separately.
    */
   @TestVisible
-  private static Integer sendEmailsForOpportunitiesWithTemplate(
+  private static Integer sendEmailsCore(
     List<Opportunity> opps,
-    Id templateId
+    EmailConfig config
   ) {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     Integer sentCount = 0;
     Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+
     // Bulk query for all Contacts related to the Opportunities
     Set<Id> contactIds = new Set<Id>();
     for (Opportunity opp : opps) {
@@ -152,13 +196,13 @@ public with sharing class DonationAcknowledgementService {
           oppsToUpdate.add(opp);
 
           Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
-          mail.setTemplateId(templateId);
-          mail.setTargetObjectId(c.Id);
-          mail.setWhatId(opp.Id);
+          config.configureEmail(mail, c, opp);
           if (orgWideEmailId != null) {
             mail.setOrgWideEmailAddressId(orgWideEmailId);
           }
-          System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
+          if (config.useTemplate) {
+            System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
+          }
           emails.add(mail);
           sentCount++;
         } else if (c != null) {
@@ -176,6 +220,7 @@ public with sharing class DonationAcknowledgementService {
         );
       }
     }
+
     if (!emails.isEmpty()) {
       try {
         Messaging.sendEmail(emails);
@@ -195,6 +240,20 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
+   * Sends emails using a templateId to the Contacts related to the given Opportunities.
+   * Ensures EmailMessage records are created and related via whatId.
+   * Returns the number of emails sent.
+   */
+  @TestVisible
+  private static Integer sendEmailsForOpportunitiesWithTemplate(
+    List<Opportunity> opps,
+    Id templateId
+  ) {
+    EmailConfig config = new EmailConfig(templateId);
+    return sendEmailsCore(opps, config);
+  }
+
+  /**
    * Sends emails to the Contacts related to the given Opportunities.
    * Ensures EmailMessage records are created and related via whatId.
    * Returns the number of emails sent.
@@ -205,70 +264,8 @@ public with sharing class DonationAcknowledgementService {
     String subject,
     String body
   ) {
-    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-    Integer sentCount = 0;
-    Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
-    // Bulk query for all Contacts related to the Opportunities
-    Set<Id> contactIds = new Set<Id>();
-    for (Opportunity opp : opps) {
-      if (opp.ContactId != null) {
-        contactIds.add(opp.ContactId);
-      }
-    }
-    Map<Id, Contact> contactMap = new Map<Id, Contact>(
-      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
-    );
-
-    List<Opportunity> oppsToUpdate = new List<Opportunity>();
-
-    for (Opportunity opp : opps) {
-      if (opp.ContactId != null) {
-        Contact c = contactMap.get(opp.ContactId);
-        if (c != null && c.Email != null) {
-          oppsToUpdate.add(opp);
-
-          Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
-          mail.setToAddresses(new List<String>{ c.Email });
-          mail.setSubject(subject);
-          mail.setPlainTextBody(body);
-          mail.setTargetObjectId(c.Id); // for compliance, but not required if using setToAddresses
-          mail.setWhatId(opp.Id); // ensures EmailMessage is created and related
-          if (orgWideEmailId != null) {
-            mail.setOrgWideEmailAddressId(orgWideEmailId);
-          }
-          emails.add(mail);
-          sentCount++;
-        } else if (c != null) {
-          System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
-        } else {
-          System.debug(
-            LoggingLevel.WARN,
-            'Contact not found for Opportunity ' + opp.Id
-          );
-        }
-      } else {
-        System.debug(
-          LoggingLevel.WARN,
-          'Opportunity ' + opp.Id + ' has no ContactId.'
-        );
-      }
-    }
-    if (!emails.isEmpty()) {
-      try {
-        Messaging.sendEmail(emails);
-        updateAcknowledgementDates(oppsToUpdate);
-      } catch (Exception e) {
-        System.debug(
-          LoggingLevel.ERROR,
-          'Email sending failed: ' + e.getMessage()
-        );
-        // Don't update acknowledgment dates if sending failed
-        throw new AuraHandledException(
-          'Failed to send acknowledgement emails: ' + e.getMessage()
-        );
-      }
-    }
-    return sentCount;
+    EmailConfig config = new EmailConfig(subject, body);
+    return sendEmailsCore(opps, config);
   }
 
   /**
