@@ -11,6 +11,43 @@ public with sharing class DonationAcknowledgementService {
     public String result;
   }
 
+  // Enhanced result class for detailed feedback on email sending operations
+  @TestVisible
+  public class EmailSendResult {
+    public Integer totalOpportunities;
+    public Integer emailsSent;
+    public Integer alreadyAcknowledged;
+    public Integer noValidContact;
+    public List<String> skippedOpportunityNames;
+
+    public EmailSendResult() {
+      this.totalOpportunities = 0;
+      this.emailsSent = 0;
+      this.alreadyAcknowledged = 0;
+      this.noValidContact = 0;
+      this.skippedOpportunityNames = new List<String>();
+    }
+
+    public String buildSummaryMessage(String emailType) {
+      String message =
+        'sendAcknowledgements called with ' +
+        totalOpportunities +
+        ' Opportunities. ';
+      message += 'Emails sent: ' + emailsSent;
+
+      if (alreadyAcknowledged > 0) {
+        message += ', Already acknowledged: ' + alreadyAcknowledged;
+      }
+
+      if (noValidContact > 0) {
+        message += ', No valid contact: ' + noValidContact;
+      }
+
+      message += ' (' + emailType + ')';
+      return message;
+    }
+  }
+
   // Email configuration class to eliminate code duplication
   @TestVisible
   public class EmailConfig {
@@ -65,7 +102,15 @@ public with sharing class DonationAcknowledgementService {
       return new List<Opportunity>();
     }
     return [
-      SELECT Id, Name, Amount, StageName, CloseDate, AccountId, ContactId
+      SELECT
+        Id,
+        Name,
+        Amount,
+        StageName,
+        CloseDate,
+        AccountId,
+        ContactId,
+        npsp__Acknowledgment_Date__c
       FROM Opportunity
       WHERE Id IN :idList
     ];
@@ -110,7 +155,8 @@ public with sharing class DonationAcknowledgementService {
     if (opps.isEmpty()) {
       return 'No Opportunity IDs provided.';
     }
-    Integer sentCount = 0;
+
+    EmailSendResult result;
     try {
       EmailTemplate tmpl = [
         SELECT Id
@@ -120,14 +166,11 @@ public with sharing class DonationAcknowledgementService {
           AND Folder.DeveloperName = :donationAckTemplateFolder
         LIMIT 1
       ];
-      sentCount = sendEmailsForOpportunitiesWithTemplate(opps, tmpl.Id);
-      return 'sendAcknowledgements called with ' +
-        opps.size() +
-        ' Opportunities. Emails sent: ' +
-        sentCount +
-        ' (Template used: ' +
-        donationAckTemplateDevName +
-        ')';
+      EmailConfig config = new EmailConfig(tmpl.Id);
+      result = sendEmailsCoreWithResult(opps, config);
+      return result.buildSummaryMessage(
+        'Template used: ' + donationAckTemplateDevName
+      );
     } catch (Exception ex) {
       // FIXME: Test relies on this exception handling, which could catch too many errors
       System.debug(
@@ -136,12 +179,9 @@ public with sharing class DonationAcknowledgementService {
       );
       String subject = 'Thank you for your donation!';
       String body = 'We appreciate your generous support.';
-      sentCount = sendEmailsForOpportunities(opps, subject, body);
-      return 'sendAcknowledgements called with ' +
-        opps.size() +
-        ' Opportunities. Emails sent: ' +
-        sentCount +
-        ' (Static content fallback)';
+      EmailConfig config = new EmailConfig(subject, body);
+      result = sendEmailsCoreWithResult(opps, config);
+      return result.buildSummaryMessage('Static content fallback');
     }
   }
 
@@ -162,23 +202,37 @@ public with sharing class DonationAcknowledgementService {
   /**
    * Core email sending logic that handles both template and static content emails.
    * Ensures EmailMessage records are created and related via whatId.
-   * Returns the number of emails sent.
-   *
-   * TODO: Enhance return value to include rich user feedback (template vs static, warnings, etc.)
-   * Currently returns only Integer count - calling methods build user messages separately.
+   * Returns detailed result with counts and feedback.
    */
   @TestVisible
-  private static Integer sendEmailsCore(
+  private static EmailSendResult sendEmailsCoreWithResult(
     List<Opportunity> opps,
     EmailConfig config
   ) {
+    EmailSendResult result = new EmailSendResult();
+    result.totalOpportunities = opps.size();
+
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-    Integer sentCount = 0;
     Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
 
-    // Bulk query for all Contacts related to the Opportunities
-    Set<Id> contactIds = new Set<Id>();
+    // Filter out already acknowledged opportunities
+    List<Opportunity> unacknowledgedOpps = new List<Opportunity>();
     for (Opportunity opp : opps) {
+      if (opp.npsp__Acknowledgment_Date__c != null) {
+        result.alreadyAcknowledged++;
+        result.skippedOpportunityNames.add(opp.Name);
+        System.debug(
+          LoggingLevel.INFO,
+          'Skipping already acknowledged opportunity: ' + opp.Name
+        );
+      } else {
+        unacknowledgedOpps.add(opp);
+      }
+    }
+
+    // Bulk query for all Contacts related to the unacknowledged Opportunities
+    Set<Id> contactIds = new Set<Id>();
+    for (Opportunity opp : unacknowledgedOpps) {
       if (opp.ContactId != null) {
         contactIds.add(opp.ContactId);
       }
@@ -189,7 +243,7 @@ public with sharing class DonationAcknowledgementService {
 
     List<Opportunity> oppsToUpdate = new List<Opportunity>();
 
-    for (Opportunity opp : opps) {
+    for (Opportunity opp : unacknowledgedOpps) {
       if (opp.ContactId != null) {
         Contact c = contactMap.get(opp.ContactId);
         if (c != null && c.Email != null) {
@@ -204,16 +258,22 @@ public with sharing class DonationAcknowledgementService {
             System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
           }
           emails.add(mail);
-          sentCount++;
+          result.emailsSent++;
         } else if (c != null) {
+          result.noValidContact++;
+          result.skippedOpportunityNames.add(opp.Name);
           System.debug(LoggingLevel.WARN, 'Contact ' + c.Id + ' has no email.');
         } else {
+          result.noValidContact++;
+          result.skippedOpportunityNames.add(opp.Name);
           System.debug(
             LoggingLevel.WARN,
             'Contact not found for Opportunity ' + opp.Id
           );
         }
       } else {
+        result.noValidContact++;
+        result.skippedOpportunityNames.add(opp.Name);
         System.debug(
           LoggingLevel.WARN,
           'Opportunity ' + opp.Id + ' has no ContactId.'
@@ -236,7 +296,24 @@ public with sharing class DonationAcknowledgementService {
         );
       }
     }
-    return sentCount;
+    return result;
+  }
+
+  /**
+   * Core email sending logic that handles both template and static content emails.
+   * Ensures EmailMessage records are created and related via whatId.
+   * Returns the number of emails sent.
+   *
+   * TODO: Enhance return value to include rich user feedback (template vs static, warnings, etc.)
+   * Currently returns only Integer count - calling methods build user messages separately.
+   */
+  @TestVisible
+  private static Integer sendEmailsCore(
+    List<Opportunity> opps,
+    EmailConfig config
+  ) {
+    EmailSendResult result = sendEmailsCoreWithResult(opps, config);
+    return result.emailsSent;
   }
 
   /**

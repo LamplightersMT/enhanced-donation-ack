@@ -8,6 +8,8 @@ This Salesforce project automates email acknowledgements for donations, similar 
 - Email template support
 - Logging of sent acknowledgements
 - Enhanced error handling to prevent data integrity issues
+- Duplicate prevention - skips already acknowledged donations
+- Detailed user feedback with counts and status information
 
 ## Setup
 
@@ -20,7 +22,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 ## Next Steps
 
-- Check whether an opportunity has already been acknowledged
+- Check whether an opportunity has already been acknowledged ✅ **IMPLEMENTED**
 - Add resend feature
 - Enhanced email delivery error checking ✅ **IMPLEMENTED**
 

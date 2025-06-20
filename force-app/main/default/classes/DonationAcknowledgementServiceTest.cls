@@ -170,7 +170,15 @@ private class DonationAcknowledgementServiceTest {
     // so this test will verify the method executes but may not send actual emails
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = [
-      SELECT Id, Name, Amount, StageName, CloseDate, AccountId, ContactId
+      SELECT
+        Id,
+        Name,
+        Amount,
+        StageName,
+        CloseDate,
+        AccountId,
+        ContactId,
+        npsp__Acknowledgment_Date__c
       FROM Opportunity
       WHERE Id = :opp.Id
     ];
@@ -204,7 +212,15 @@ private class DonationAcknowledgementServiceTest {
     // Test the core method directly with static content configuration
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = [
-      SELECT Id, Name, Amount, StageName, CloseDate, AccountId, ContactId
+      SELECT
+        Id,
+        Name,
+        Amount,
+        StageName,
+        CloseDate,
+        AccountId,
+        ContactId,
+        npsp__Acknowledgment_Date__c
       FROM Opportunity
       WHERE Id = :opp.Id
     ];
@@ -232,6 +248,214 @@ private class DonationAcknowledgementServiceTest {
       Date.today(),
       updatedOpp.npsp__Acknowledgment_Date__c,
       'Acknowledgment date should be set'
+    );
+  }
+
+  @isTest
+  static void testDuplicatePreventionSkipsAcknowledgedOpportunities() {
+    // Create test data with one already acknowledged opportunity
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    // Create two opportunities - one already acknowledged, one not
+    Opportunity acknowledgedOpp = new Opportunity(
+      Name = 'Already Acknowledged Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today().addDays(-1),
+      Amount = 200,
+      ContactId = c.Id,
+      npsp__Acknowledgment_Date__c = Date.today().addDays(-1) // Already acknowledged
+    );
+
+    Opportunity newOpp = new Opportunity(
+      Name = 'New Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today(),
+      Amount = 100,
+      ContactId = c.Id
+      // No acknowledgment date - should be processed
+    );
+
+    insert new List<Opportunity>{ acknowledgedOpp, newOpp };
+
+    List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id, newOpp.Id };
+
+    Test.startTest();
+    String result = DonationAcknowledgementService.sendAcknowledgements(oppIds);
+    Test.stopTest();
+
+    // Verify result message shows correct counts
+    System.assert(
+      result.contains('2 Opportunities'),
+      'Should show 2 total opportunities'
+    );
+    System.assert(
+      result.contains('Emails sent: 1'),
+      'Should send 1 email (for new opp only)'
+    );
+    System.assert(
+      result.contains('Already acknowledged: 1'),
+      'Should show 1 already acknowledged'
+    );
+
+    // Verify only the new opportunity got acknowledgment date updated
+    List<Opportunity> updatedOpps = [
+      SELECT Id, Name, npsp__Acknowledgment_Date__c
+      FROM Opportunity
+      WHERE Id IN :oppIds
+      ORDER BY Name
+    ];
+
+    // Already acknowledged opp should keep its original date
+    System.assertEquals(
+      Date.today().addDays(-1),
+      updatedOpps[0].npsp__Acknowledgment_Date__c,
+      'Already acknowledged opp should keep original date'
+    );
+
+    // New opp should get today's date
+    System.assertEquals(
+      Date.today(),
+      updatedOpps[1].npsp__Acknowledgment_Date__c,
+      'New opp should get acknowledgment date set to today'
+    );
+  }
+
+  @isTest
+  static void testDuplicatePreventionAllAlreadyAcknowledged() {
+    // Test scenario where all opportunities are already acknowledged
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    Opportunity acknowledgedOpp = new Opportunity(
+      Name = 'Already Acknowledged Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today().addDays(-1),
+      Amount = 100,
+      ContactId = c.Id,
+      npsp__Acknowledgment_Date__c = Date.today().addDays(-1)
+    );
+    insert acknowledgedOpp;
+
+    List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id };
+
+    Test.startTest();
+    String result = DonationAcknowledgementService.sendAcknowledgements(oppIds);
+    Test.stopTest();
+
+    // Verify no emails were sent but proper feedback provided
+    System.assert(
+      result.contains('1 Opportunities'),
+      'Should show 1 total opportunity'
+    );
+    System.assert(result.contains('Emails sent: 0'), 'Should send 0 emails');
+    System.assert(
+      result.contains('Already acknowledged: 1'),
+      'Should show 1 already acknowledged'
+    );
+  }
+
+  @isTest
+  static void testSendEmailsCoreWithResultReturnsDetailedFeedback() {
+    // Test the detailed result object directly
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    // Create mixed scenario: acknowledged, new, and no contact
+    Opportunity acknowledgedOpp = new Opportunity(
+      Name = 'Acknowledged Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today(),
+      Amount = 100,
+      ContactId = c.Id,
+      npsp__Acknowledgment_Date__c = Date.today().addDays(-1)
+    );
+
+    Opportunity newOpp = new Opportunity(
+      Name = 'New Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today(),
+      Amount = 200,
+      ContactId = c.Id
+    );
+
+    Opportunity noContactOpp = new Opportunity(
+      Name = 'No Contact Opp',
+      StageName = 'Closed Won',
+      CloseDate = Date.today(),
+      Amount = 150
+      // No ContactId
+    );
+
+    insert new List<Opportunity>{ acknowledgedOpp, newOpp, noContactOpp };
+
+    List<Opportunity> opps = [
+      SELECT
+        Id,
+        Name,
+        Amount,
+        StageName,
+        CloseDate,
+        AccountId,
+        ContactId,
+        npsp__Acknowledgment_Date__c
+      FROM Opportunity
+      WHERE Id IN (:acknowledgedOpp.Id, :newOpp.Id, :noContactOpp.Id)
+    ];
+
+    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+      'Test Subject',
+      'Test Body'
+    );
+
+    Test.startTest();
+    DonationAcknowledgementService.EmailSendResult result = DonationAcknowledgementService.sendEmailsCoreWithResult(
+      opps,
+      config
+    );
+    Test.stopTest();
+
+    // Verify detailed counts
+    System.assertEquals(
+      3,
+      result.totalOpportunities,
+      'Should have 3 total opportunities'
+    );
+    System.assertEquals(1, result.emailsSent, 'Should send 1 email');
+    System.assertEquals(
+      1,
+      result.alreadyAcknowledged,
+      'Should have 1 already acknowledged'
+    );
+    System.assertEquals(
+      1,
+      result.noValidContact,
+      'Should have 1 with no valid contact'
+    );
+    System.assertEquals(
+      2,
+      result.skippedOpportunityNames.size(),
+      'Should have 2 skipped opportunity names'
+    );
+
+    // Verify summary message
+    String summary = result.buildSummaryMessage('Test Type');
+    System.assert(
+      summary.contains('3 Opportunities'),
+      'Summary should show total count'
+    );
+    System.assert(
+      summary.contains('Emails sent: 1'),
+      'Summary should show emails sent'
+    );
+    System.assert(
+      summary.contains('Already acknowledged: 1'),
+      'Summary should show already acknowledged'
+    );
+    System.assert(
+      summary.contains('No valid contact: 1'),
+      'Summary should show no valid contact'
+    );
+    System.assert(
+      summary.contains('Test Type'),
+      'Summary should include email type'
     );
   }
 }
