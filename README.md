@@ -23,7 +23,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 ## Next Steps
 
 - Add resend feature
-- Enhance output from flows to show which Opportunies succeeded/errored
+- Enhance output from flows to show which Opportunities succeeded/errored
 - Enhanced email delivery error checking ✅ **IMPLEMENTED**
 - Check whether an opportunity has already been acknowledged ✅ **IMPLEMENTED**
 
