@@ -60,11 +60,17 @@ public with sharing class DonationAcknowledgementService {
   // Individual opportunity result with detailed tracking
   @TestVisible
   public class OpportunityResult {
+    @AuraEnabled
     public Id opportunityId;
+    @AuraEnabled
     public String opportunityName;
+    @AuraEnabled
     public AckStatus status;
+    @AuraEnabled
     public String reason;
+    @AuraEnabled
     public String contactEmail;
+    @AuraEnabled
     public Date acknowledgmentDate;
 
     public OpportunityResult(Id oppId, String oppName) {
@@ -96,12 +102,19 @@ public with sharing class DonationAcknowledgementService {
   // Detailed acknowledgement result with individual opportunity tracking
   @TestVisible
   public class DetailedAckResult {
+    @AuraEnabled
     public Integer totalOpportunities;
+    @AuraEnabled
     public Integer emailsSent;
+    @AuraEnabled
     public Integer alreadyAcknowledged;
+    @AuraEnabled
     public Integer noValidContact;
+    @AuraEnabled
     public Integer emailSendFailures;
+    @AuraEnabled
     public List<OpportunityResult> opportunityResults;
+    @AuraEnabled
     public String emailType;
 
     public DetailedAckResult() {
