@@ -293,13 +293,15 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+    List<DonationAcknowledgementService.DetailedAckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
       input
     );
     Test.stopTest();
 
     System.assertEquals(1, result.size());
-    System.assert(result[0].result.contains('Emails sent: 1'));
+    System.assertEquals(1, result[0].emailsSent);
+    System.assertEquals(1, result[0].totalOpportunities);
+    System.assert(result[0].summaryMessage.contains('Emails sent: 1'));
 
     // Verify acknowledgement date is set
     assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
@@ -317,13 +319,15 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+    List<DonationAcknowledgementService.DetailedAckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
       input
     );
     Test.stopTest();
 
     System.assertEquals(1, result.size());
-    System.assert(result[0].result.contains('Static content fallback'));
+    System.assertEquals(1, result[0].emailsSent);
+    System.assertEquals(1, result[0].totalOpportunities);
+    System.assert(result[0].summaryMessage.contains('Static content fallback'));
 
     // Verify acknowledgement date is set
     assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
@@ -336,13 +340,23 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    List<DonationAcknowledgementService.AckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+    List<DonationAcknowledgementService.DetailedAckResultWrapper> result = DonationAcknowledgementService.sendAcknowledgementsInvocable(
       input
     );
     Test.stopTest();
 
     System.assertEquals(1, result.size());
-    System.assertEquals('No Opportunity IDs provided.', result[0].result);
+    System.assertEquals(0, result[0].totalOpportunities);
+    System.assertEquals(0, result[0].emailsSent);
+    System.assert(
+      result[0]
+        .summaryMessage.contains(
+          'sendAcknowledgements called with 0 Opportunities'
+        )
+    );
+    System.assert(
+      result[0].summaryMessage.contains('No opportunities provided')
+    );
   }
 
   @isTest

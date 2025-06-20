@@ -5,10 +5,46 @@ public with sharing class DonationAcknowledgementService {
     public List<Id> opportunityIds;
   }
 
-  // Wrapper class for Invocable output
-  public class AckResultWrapper {
+  // Enhanced wrapper class for Invocable output with detailed results
+  public class DetailedAckResultWrapper {
     @InvocableVariable
-    public String result;
+    public Integer totalOpportunities;
+    @InvocableVariable
+    public Integer emailsSent;
+    @InvocableVariable
+    public Integer alreadyAcknowledged;
+    @InvocableVariable
+    public Integer noValidContact;
+    @InvocableVariable
+    public Integer emailSendFailures;
+    @InvocableVariable
+    public String emailType;
+    @InvocableVariable
+    public String summaryMessage;
+    @InvocableVariable
+    public List<OpportunityResultWrapper> opportunityDetails;
+  }
+
+  // Individual opportunity results wrapper for Flow consumption
+  public class OpportunityResultWrapper {
+    @InvocableVariable
+    public String opportunityId;
+    @InvocableVariable
+    public String opportunityName;
+    @InvocableVariable
+    public String status;
+    @InvocableVariable
+    public String reason;
+    @InvocableVariable
+    public String contactEmail;
+    @InvocableVariable
+    public String acknowledgmentDate;
+    @InvocableVariable
+    public Boolean isSuccess;
+    @InvocableVariable
+    public Boolean isSkipped;
+    @InvocableVariable
+    public Boolean isFailed;
   }
 
   // Enum for acknowledgement status codes
@@ -242,21 +278,63 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * Invocable method for Flows and list view buttons
-   * @param inputList List of OpportunityIdWrapper
-   * @return List of AckResultWrapper with status messages
+   * Convert DetailedAckResult to Flow-compatible DetailedAckResultWrapper
    */
-  @InvocableMethod
-  public static List<AckResultWrapper> sendAcknowledgementsInvocable(
+  private static DetailedAckResultWrapper convertToFlowWrapper(
+    DetailedAckResult detailedResult
+  ) {
+    DetailedAckResultWrapper flowResult = new DetailedAckResultWrapper();
+
+    // Copy aggregate data
+    flowResult.totalOpportunities = detailedResult.totalOpportunities;
+    flowResult.emailsSent = detailedResult.emailsSent;
+    flowResult.alreadyAcknowledged = detailedResult.alreadyAcknowledged;
+    flowResult.noValidContact = detailedResult.noValidContact;
+    flowResult.emailSendFailures = detailedResult.emailSendFailures;
+    flowResult.emailType = detailedResult.emailType;
+    flowResult.summaryMessage = detailedResult.buildSummaryMessage();
+
+    // Convert individual opportunity results
+    flowResult.opportunityDetails = new List<OpportunityResultWrapper>();
+    for (OpportunityResult oppResult : detailedResult.opportunityResults) {
+      OpportunityResultWrapper flowOppResult = new OpportunityResultWrapper();
+      flowOppResult.opportunityId = String.valueOf(oppResult.opportunityId);
+      flowOppResult.opportunityName = oppResult.opportunityName;
+      flowOppResult.status = String.valueOf(oppResult.status);
+      flowOppResult.reason = oppResult.reason;
+      flowOppResult.contactEmail = oppResult.contactEmail;
+      flowOppResult.acknowledgmentDate = oppResult.acknowledgmentDate != null
+        ? oppResult.acknowledgmentDate.format()
+        : null;
+      flowOppResult.isSuccess = oppResult.isSuccess();
+      flowOppResult.isSkipped = oppResult.isSkipped();
+      flowOppResult.isFailed = oppResult.isFailed();
+
+      flowResult.opportunityDetails.add(flowOppResult);
+    }
+
+    return flowResult;
+  }
+
+  /**
+   * Invocable method for Flows and list view buttons with detailed results
+   * @param inputList List of OpportunityIdWrapper
+   * @return List of DetailedAckResultWrapper with comprehensive acknowledgement data
+   */
+  @InvocableMethod(
+    label='Send Donation Acknowledgements (Enhanced)'
+    description='Send acknowledgement emails for donations with detailed results for Flow processing'
+  )
+  public static List<DetailedAckResultWrapper> sendAcknowledgementsInvocable(
     List<OpportunityIdWrapper> inputList
   ) {
     List<Id> idList = extractOpportunityIds(inputList);
 
-    List<AckResultWrapper> results = new List<AckResultWrapper>();
-    AckResultWrapper res = new AckResultWrapper();
-    res.result = sendAcknowledgements(idList);
-    System.debug(LoggingLevel.INFO, res.result);
-    results.add(res);
+    List<DetailedAckResultWrapper> results = new List<DetailedAckResultWrapper>();
+    DetailedAckResult detailedResult = sendAcknowledgementsDetailed(idList);
+    DetailedAckResultWrapper flowResult = convertToFlowWrapper(detailedResult);
+    System.debug(LoggingLevel.INFO, flowResult.summaryMessage);
+    results.add(flowResult);
     return results;
   }
 
