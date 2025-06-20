@@ -22,15 +22,16 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 ## Next Steps
 
-- Check whether an opportunity has already been acknowledged ✅ **IMPLEMENTED**
 - Add resend feature
+- Enhance output from flows to show which Opportunies succeeded/errored
 - Enhanced email delivery error checking ✅ **IMPLEMENTED**
+- Check whether an opportunity has already been acknowledged ✅ **IMPLEMENTED**
 
 ## Future Roadmap
 
 - Add option to edit email before sending
 - Add option to select different email templates
-- Lightning Web Components for configuration
+- Improvements to Lightning Web Components
 
 ## Notes
 
