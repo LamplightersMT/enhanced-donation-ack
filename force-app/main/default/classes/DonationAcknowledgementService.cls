@@ -177,8 +177,19 @@ public with sharing class DonationAcknowledgementService {
       }
     }
     if (!emails.isEmpty()) {
-      Messaging.sendEmail(emails);
-      updateAcknowledgementDates(oppsToUpdate);
+      try {
+        Messaging.sendEmail(emails);
+        updateAcknowledgementDates(oppsToUpdate);
+      } catch (Exception e) {
+        System.debug(
+          LoggingLevel.ERROR,
+          'Email sending failed: ' + e.getMessage()
+        );
+        // Don't update acknowledgment dates if sending failed
+        throw new AuraHandledException(
+          'Failed to send acknowledgement emails: ' + e.getMessage()
+        );
+      }
     }
     return sentCount;
   }
@@ -243,8 +254,19 @@ public with sharing class DonationAcknowledgementService {
       }
     }
     if (!emails.isEmpty()) {
-      Messaging.sendEmail(emails);
-      updateAcknowledgementDates(oppsToUpdate);
+      try {
+        Messaging.sendEmail(emails);
+        updateAcknowledgementDates(oppsToUpdate);
+      } catch (Exception e) {
+        System.debug(
+          LoggingLevel.ERROR,
+          'Email sending failed: ' + e.getMessage()
+        );
+        // Don't update acknowledgment dates if sending failed
+        throw new AuraHandledException(
+          'Failed to send acknowledgement emails: ' + e.getMessage()
+        );
+      }
     }
     return sentCount;
   }

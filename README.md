@@ -7,6 +7,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 - Apex classes and triggers for donation acknowledgement
 - Email template support
 - Logging of sent acknowledgements
+- Enhanced error handling to prevent data integrity issues
 
 ## Setup
 
@@ -21,7 +22,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 - Check whether an opportunity has already been acknowledged
 - Add resend feature
-- Use modern email template
+- Enhanced email delivery error checking ✅ **IMPLEMENTED**
 
 ## Future Roadmap
 
