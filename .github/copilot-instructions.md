@@ -28,3 +28,5 @@ Run code coverage tests synchronously, not asynchronously. Use the `--synchronou
 Never use emoji in commit messages or comments.
 
 When renaming files use 'git mv' to preserve history
+
+Never use emoji in commit messages or comments.

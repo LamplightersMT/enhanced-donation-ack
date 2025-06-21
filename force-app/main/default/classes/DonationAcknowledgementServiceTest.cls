@@ -441,7 +441,7 @@ private class DonationAcknowledgementServiceTest {
 
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
         opps,
         new DonationAcknowledgementService.EmailConfig(mockTemplateId)
       );
@@ -469,7 +469,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       new DonationAcknowledgementService.EmailConfig(
         'Test Subject',
@@ -593,7 +593,7 @@ private class DonationAcknowledgementServiceTest {
 
     Test.startTest();
     // Test the new detailed method instead of the old EmailSendResult method
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       config
     );
@@ -834,7 +834,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       config
     );
@@ -905,7 +905,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       config
     );
