@@ -27,9 +27,6 @@ export default class AcknowledgeDonationButton extends LightningElement {
       const detailedResult = await sendAcknowledgementsDetailed({
         idList: idsToProcess
       });
-      console.log("Detailed acknowledgement result:", detailedResult);
-      console.log("Keys in result:", Object.keys(detailedResult));
-      console.log("emailsSent value:", detailedResult.emailsSent);
 
       // Ensure we have valid numbers (handle undefined/null cases)
       const emailsSent = detailedResult.emailsSent || 0;

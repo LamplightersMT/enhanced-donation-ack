@@ -203,7 +203,27 @@ private class DonationAcknowledgementServiceTest {
    * Assert that acknowledgment date is set to today (using test execution date)
    */
   private static void assertAcknowledgmentDateSetToday(Id oppId) {
-    assertAcknowledgmentDateSet(oppId, Date.today());
+    Opportunity updatedOpp = queryOpportunityWithAckDate(oppId);
+    System.assertNotEquals(
+      null,
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgment date should be set'
+    );
+
+    // Check that the date is within a reasonable range (today or yesterday to handle midnight edge cases)
+    Date ackDate = updatedOpp.npsp__Acknowledgment_Date__c;
+    Date today = Date.today();
+    Date yesterday = today.addDays(-1);
+
+    System.assert(
+      ackDate == today || ackDate == yesterday,
+      'Acknowledgment date should be set to today or yesterday (for midnight edge cases). Expected: ' +
+        today +
+        ' or ' +
+        yesterday +
+        ', Actual: ' +
+        ackDate
+    );
   }
 
   /**
@@ -304,7 +324,7 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Emails sent: 1'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -330,7 +350,7 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Static content fallback'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -381,14 +401,11 @@ private class DonationAcknowledgementServiceTest {
 
     Test.startTest();
     try {
-      String result = DonationAcknowledgementService.sendAcknowledgements(
+      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
         oppIds
       );
       // If we get here, email sending succeeded (normal test behavior)
-      System.assert(
-        result.contains('Emails sent:'),
-        'Should indicate emails were sent'
-      );
+      System.assert(result.emailsSent > 0, 'Should indicate emails were sent');
 
       // Verify acknowledgment date was set on success
       assertAcknowledgmentDateSetToday(opp.Id);
@@ -424,12 +441,12 @@ private class DonationAcknowledgementServiceTest {
 
     Test.startTest();
     try {
-      Integer result = DonationAcknowledgementService.sendEmailsCore(
+      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
         opps,
         new DonationAcknowledgementService.EmailConfig(mockTemplateId)
       );
       // If we get here, the method executed successfully
-      System.assert(result >= 0, 'Should return a valid count');
+      System.assert(result.emailsSent >= 0, 'Should return a valid count');
     } catch (Exception e) {
       // In test context, template-based emails may fail due to missing template or invalid ID format
       // This is expected behavior - the important thing is that the method doesn't crash unexpectedly
@@ -452,7 +469,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    Integer result = DonationAcknowledgementService.sendEmailsCore(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
       opps,
       new DonationAcknowledgementService.EmailConfig(
         'Test Subject',
@@ -462,7 +479,7 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
 
     // Should return 1 (one email processed)
-    System.assertEquals(1, result, 'Should process one opportunity');
+    System.assertEquals(1, result.emailsSent, 'Should process one opportunity');
 
     // Verify acknowledgment date was set
     assertAcknowledgmentDateSetToday(opp.Id);
@@ -486,20 +503,25 @@ private class DonationAcknowledgementServiceTest {
     List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id, newOpp.Id };
 
     Test.startTest();
-    String result = DonationAcknowledgementService.sendAcknowledgements(oppIds);
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      oppIds
+    );
     Test.stopTest();
 
     // Verify result message shows correct counts
-    System.assert(
-      result.contains('2 Opportunities'),
+    System.assertEquals(
+      2,
+      result.totalOpportunities,
       'Should show 2 total opportunities'
     );
-    System.assert(
-      result.contains('Emails sent: 1'),
+    System.assertEquals(
+      1,
+      result.emailsSent,
       'Should send 1 email (for new opp only)'
     );
-    System.assert(
-      result.contains('Already acknowledged: 1'),
+    System.assertEquals(
+      1,
+      result.alreadyAcknowledged,
       'Should show 1 already acknowledged'
     );
 
@@ -514,7 +536,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // New opp should get today's date
-    assertAcknowledgmentDateSetToday(updatedOpps[1].Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(updatedOpps[1].Id);
   }
 
   @isTest
@@ -532,17 +554,21 @@ private class DonationAcknowledgementServiceTest {
     List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id };
 
     Test.startTest();
-    String result = DonationAcknowledgementService.sendAcknowledgements(oppIds);
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      oppIds
+    );
     Test.stopTest();
 
     // Verify no emails were sent but proper feedback provided
-    System.assert(
-      result.contains('1 Opportunities'),
+    System.assertEquals(
+      1,
+      result.totalOpportunities,
       'Should show 1 total opportunity'
     );
-    System.assert(result.contains('Emails sent: 0'), 'Should send 0 emails');
-    System.assert(
-      result.contains('Already acknowledged: 1'),
+    System.assertEquals(0, result.emailsSent, 'Should send 0 emails');
+    System.assertEquals(
+      1,
+      result.alreadyAcknowledged,
       'Should show 1 already acknowledged'
     );
   }
@@ -1142,13 +1168,13 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testEnhancedAPIMethodsConsistency() {
-    // Test that enhanced methods return consistent data with existing methods
+    // Test that enhanced methods return consistent data with invocable methods
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Id> oppIds = new List<Id>{ opp.Id };
 
     Test.startTest();
-    // Call both old and new methods
-    String basicResult = DonationAcknowledgementService.sendAcknowledgements(
+    // Call detailed method
+    DonationAcknowledgementService.DetailedAckResult detailedResult = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       oppIds
     );
 
@@ -1159,20 +1185,27 @@ private class DonationAcknowledgementServiceTest {
     );
     update oppReset;
 
-    DonationAcknowledgementService.DetailedAckResult detailedResult = DonationAcknowledgementService.sendAcknowledgementsDetailed(
-      oppIds
+    // Call invocable method for comparison
+    List<DonationAcknowledgementService.OpportunityIdWrapper> inputList = new List<DonationAcknowledgementService.OpportunityIdWrapper>();
+    DonationAcknowledgementService.OpportunityIdWrapper wrapper = new DonationAcknowledgementService.OpportunityIdWrapper();
+    wrapper.opportunityIds = oppIds;
+    inputList.add(wrapper);
+
+    List<DonationAcknowledgementService.DetailedAckResultWrapper> invocableResults = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+      inputList
     );
     Test.stopTest();
 
     // Verify consistent data between methods
-    System.assert(
-      basicResult.contains('Emails sent: 1'),
-      'Basic method should show 1 email sent'
-    );
     System.assertEquals(
       1,
       detailedResult.emailsSent,
       'Detailed method should show 1 email sent'
+    );
+    System.assertEquals(
+      1,
+      invocableResults[0].emailsSent,
+      'Invocable method should show 1 email sent'
     );
 
     // Verify detailed method provides additional information

@@ -208,6 +208,7 @@ public with sharing class DonationAcknowledgementService {
     public String subject;
     public String body;
     public Boolean useTemplate;
+    public String emailType;
 
     // Constructor for template-based emails
     public EmailConfig(Id templateId) {
@@ -352,44 +353,6 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * AuraEnabled method for LWC/Aura use
-   */
-  @AuraEnabled
-  public static String sendAcknowledgements(List<Id> idList) {
-    List<Opportunity> opps = getOpportunitiesByIds(idList);
-    if (opps.isEmpty()) {
-      return 'No Opportunity IDs provided.';
-    }
-
-    DetailedAckResult result;
-    try {
-      EmailTemplate tmpl = [
-        SELECT Id
-        FROM EmailTemplate
-        WHERE
-          DeveloperName = :donationAckTemplateDevName
-          AND Folder.DeveloperName = :donationAckTemplateFolder
-        LIMIT 1
-      ];
-      EmailConfig config = new EmailConfig(tmpl.Id);
-      result = sendEmailsCoreDetailed(opps, config);
-      result.emailType = 'Template used: ' + donationAckTemplateDevName;
-    } catch (Exception ex) {
-      // FIXME: Test relies on this exception handling, which could catch too many errors
-      System.debug(
-        LoggingLevel.ERROR,
-        'Template not found or error: ' + ex.getMessage()
-      );
-      String subject = 'Thank you for your donation!';
-      String body = 'We appreciate your generous support.';
-      EmailConfig config = new EmailConfig(subject, body);
-      result = sendEmailsCoreDetailed(opps, config);
-      result.emailType = 'Static content fallback';
-    }
-    return result.buildSummaryMessage();
-  }
-
-  /**
    * Enhanced AuraEnabled method that returns detailed results for advanced consumers (LWC)
    * @param idList List of Opportunity IDs to process
    * @return DetailedAckResult with individual opportunity tracking and aggregated counts
@@ -406,29 +369,9 @@ public with sharing class DonationAcknowledgementService {
     }
 
     DetailedAckResult result;
-    try {
-      EmailTemplate tmpl = [
-        SELECT Id
-        FROM EmailTemplate
-        WHERE
-          DeveloperName = :donationAckTemplateDevName
-          AND Folder.DeveloperName = :donationAckTemplateFolder
-        LIMIT 1
-      ];
-      EmailConfig config = new EmailConfig(tmpl.Id);
-      result = sendEmailsCoreDetailed(opps, config);
-      result.emailType = 'Template used: ' + donationAckTemplateDevName;
-    } catch (Exception ex) {
-      System.debug(
-        LoggingLevel.ERROR,
-        'Template not found or error: ' + ex.getMessage()
-      );
-      String subject = 'Thank you for your donation!';
-      String body = 'We appreciate your generous support.';
-      EmailConfig config = new EmailConfig(subject, body);
-      result = sendEmailsCoreDetailed(opps, config);
-      result.emailType = 'Static content fallback';
-    }
+    EmailConfig config = getEmailConfiguration();
+    result = sendEmailsCoreDetailed(opps, config);
+    result.emailType = config.emailType;
     return result;
   }
 
@@ -579,17 +522,53 @@ public with sharing class DonationAcknowledgementService {
         if (!oppsToUpdate.isEmpty()) {
           update oppsToUpdate;
         }
-      } catch (Exception e) {
+      } catch (EmailException ee) {
         System.debug(
           LoggingLevel.ERROR,
-          'Email sending failed: ' + e.getMessage()
+          'Email sending failed: ' + ee.getMessage()
         );
 
         // Mark all prepared opportunities as failed
         for (OpportunityResult oppResult : successfulOpps) {
           oppResult.setStatus(
             AckStatus.EMAIL_SEND_FAILED,
-            'Email sending failed: ' + e.getMessage()
+            'Email sending failed: ' + ee.getMessage()
+          );
+          detailedResult.addOpportunityResult(oppResult);
+        }
+
+        throw new AuraHandledException(
+          'Failed to send acknowledgement emails: ' + ee.getMessage()
+        );
+      } catch (DmlException de) {
+        System.debug(
+          LoggingLevel.ERROR,
+          'Database update failed: ' + de.getMessage()
+        );
+
+        // Mark all prepared opportunities as failed
+        for (OpportunityResult oppResult : successfulOpps) {
+          oppResult.setStatus(
+            AckStatus.EMAIL_SEND_FAILED,
+            'Database update failed: ' + de.getMessage()
+          );
+          detailedResult.addOpportunityResult(oppResult);
+        }
+
+        throw new AuraHandledException(
+          'Failed to update acknowledgement dates: ' + de.getMessage()
+        );
+      } catch (Exception e) {
+        System.debug(
+          LoggingLevel.ERROR,
+          'Unexpected error during email processing: ' + e.getMessage()
+        );
+
+        // Mark all prepared opportunities as failed
+        for (OpportunityResult oppResult : successfulOpps) {
+          oppResult.setStatus(
+            AckStatus.EMAIL_SEND_FAILED,
+            'Unexpected error: ' + e.getMessage()
           );
           detailedResult.addOpportunityResult(oppResult);
         }
@@ -604,18 +583,46 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * Core email sending logic that handles both template and static content emails.
-   * Ensures EmailMessage records are created and related via whatId.
-   * Returns the number of emails sent.
-   *
-   * @deprecated Use sendEmailsCoreDetailed() for richer functionality
+   * Get email configuration with proper exception handling for template lookup
+   * @return EmailConfig configured with template or static fallback
    */
-  @TestVisible
-  private static Integer sendEmailsCore(
-    List<Opportunity> opps,
-    EmailConfig config
-  ) {
-    DetailedAckResult result = sendEmailsCoreDetailed(opps, config);
-    return result.emailsSent;
+  private static EmailConfig getEmailConfiguration() {
+    try {
+      EmailTemplate tmpl = [
+        SELECT Id
+        FROM EmailTemplate
+        WHERE
+          DeveloperName = :donationAckTemplateDevName
+          AND Folder.DeveloperName = :donationAckTemplateFolder
+        LIMIT 1
+      ];
+      EmailConfig config = new EmailConfig(tmpl.Id);
+      config.emailType = 'Template used: ' + donationAckTemplateDevName;
+      return config;
+    } catch (QueryException qe) {
+      System.debug(
+        LoggingLevel.WARN,
+        'EmailTemplate not found: ' + qe.getMessage()
+      );
+      return getStaticEmailConfiguration();
+    } catch (System.Exception ex) {
+      System.debug(
+        LoggingLevel.ERROR,
+        'Unexpected error accessing EmailTemplate: ' + ex.getMessage()
+      );
+      return getStaticEmailConfiguration();
+    }
+  }
+
+  /**
+   * Get static email configuration as fallback
+   * @return EmailConfig with static content
+   */
+  private static EmailConfig getStaticEmailConfiguration() {
+    String subject = 'Thank you for your donation!';
+    String body = 'We appreciate your generous support.';
+    EmailConfig config = new EmailConfig(subject, body);
+    config.emailType = 'Static content fallback';
+    return config;
   }
 }
