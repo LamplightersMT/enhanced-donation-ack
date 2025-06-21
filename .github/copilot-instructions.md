@@ -5,8 +5,6 @@ Ensure all emails are stored as EmailMessage records
 
 Your audience is experienced software developers who are new to Salesforce development. Provide clear, concise instructions and examples.
 
-Triggers must be implemented in the TDTM framework, described here: https://help.salesforce.com/s/articleView?id=sfdo.eda_deploy_apex_tdtm.htm&type=5
-
 Use the newer 'sf' CLI commands instead of the older 'sfdx' commands
 
 Use 4 spaces for indentation, no tabs. ALWAYS USE 4 SPACES FOR INDENTATION. NEVER USE 2 SPACES FOR INDENTATION.
