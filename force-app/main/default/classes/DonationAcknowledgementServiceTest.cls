@@ -203,7 +203,27 @@ private class DonationAcknowledgementServiceTest {
    * Assert that acknowledgment date is set to today (using test execution date)
    */
   private static void assertAcknowledgmentDateSetToday(Id oppId) {
-    assertAcknowledgmentDateSet(oppId, Date.today());
+    Opportunity updatedOpp = queryOpportunityWithAckDate(oppId);
+    System.assertNotEquals(
+      null,
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgment date should be set'
+    );
+
+    // Check that the date is within a reasonable range (today or yesterday to handle midnight edge cases)
+    Date ackDate = updatedOpp.npsp__Acknowledgment_Date__c;
+    Date today = Date.today();
+    Date yesterday = today.addDays(-1);
+
+    System.assert(
+      ackDate == today || ackDate == yesterday,
+      'Acknowledgment date should be set to today or yesterday (for midnight edge cases). Expected: ' +
+        today +
+        ' or ' +
+        yesterday +
+        ', Actual: ' +
+        ackDate
+    );
   }
 
   /**
@@ -304,7 +324,7 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Emails sent: 1'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -330,7 +350,7 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Static content fallback'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -514,7 +534,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // New opp should get today's date
-    assertAcknowledgmentDateSetToday(updatedOpps[1].Id); // FIXME: Fragile test, will break if run on a different day
+    assertAcknowledgmentDateSetToday(updatedOpps[1].Id);
   }
 
   @isTest
