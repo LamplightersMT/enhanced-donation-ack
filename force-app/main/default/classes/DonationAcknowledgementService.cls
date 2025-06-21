@@ -353,23 +353,6 @@ public with sharing class DonationAcknowledgementService {
   }
 
   /**
-   * AuraEnabled method for LWC/Aura use
-   */
-  @AuraEnabled
-  public static String sendAcknowledgements(List<Id> idList) {
-    List<Opportunity> opps = getOpportunitiesByIds(idList);
-    if (opps.isEmpty()) {
-      return 'No Opportunity IDs provided.';
-    }
-
-    DetailedAckResult result;
-    EmailConfig config = getEmailConfiguration();
-    result = sendEmailsCoreDetailed(opps, config);
-    result.emailType = config.emailType;
-    return result.buildSummaryMessage();
-  }
-
-  /**
    * Enhanced AuraEnabled method that returns detailed results for advanced consumers (LWC)
    * @param idList List of Opportunity IDs to process
    * @return DetailedAckResult with individual opportunity tracking and aggregated counts
@@ -597,22 +580,6 @@ public with sharing class DonationAcknowledgementService {
     }
 
     return detailedResult;
-  }
-
-  /**
-   * Core email sending logic that handles both template and static content emails.
-   * Ensures EmailMessage records are created and related via whatId.
-   * Returns the number of emails sent.
-   *
-   * @deprecated Use sendEmailsCoreDetailed() for richer functionality
-   */
-  @TestVisible
-  private static Integer sendEmailsCore(
-    List<Opportunity> opps,
-    EmailConfig config
-  ) {
-    DetailedAckResult result = sendEmailsCoreDetailed(opps, config);
-    return result.emailsSent;
   }
 
   /**
