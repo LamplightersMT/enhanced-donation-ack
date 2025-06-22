@@ -18,6 +18,9 @@
         <members>OpportunityValidationCommandTest</members>
         <members>ResultAggregationCommand</members>
         <members>ResultAggregationCommandTest</members>
+        <members>IOrgWideEmailService</members>
+        <members>OrgWideEmailService</members>
+        <members>MockOrgWideEmailService</members>
         <name>ApexClass</name>
     </types>
     <types>

@@ -7,6 +7,9 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
   private DonationAcknowledgementService.EmailConfig config;
   private AcknowledgementCommandOutputs.EmailPrepOutput prepOutput;
 
+  @TestVisible
+  private static IOrgWideEmailService orgWideEmailService = new OrgWideEmailService();
+
   public EmailPreparationCommand(
     List<Opportunity> validOpportunities,
     DonationAcknowledgementService.EmailConfig config
@@ -72,22 +75,16 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
    * Returns null if none is configured as default.
    * See: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm
    */
+  @TestVisible
   private static Id getDefaultOrgWideEmailAddressId() {
-    // First, try to find the address with Purpose containing 'DefaultNoReply'
-    OrgWideEmailAddress[] defaultNoReply = [
-      SELECT Id, Purpose
-      FROM OrgWideEmailAddress
-      WHERE Purpose IN ('UserSelectionAndDefaultNoReply', 'DefaultNoReply')
-      ORDER BY Address ASC
-      LIMIT 1
-    ];
-    if (defaultNoReply.isEmpty()) {
+    OrgWideEmailAddress defaultNoReply = orgWideEmailService.getDefaultNoReplyAddress();
+    if (defaultNoReply == null) {
       System.debug(
         LoggingLevel.WARN,
         'No org-wide email address is configured as Default No-Reply Address.'
       );
       return null;
     }
-    return defaultNoReply[0].Id;
+    return defaultNoReply.Id;
   }
 }

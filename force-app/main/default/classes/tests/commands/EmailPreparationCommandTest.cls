@@ -599,4 +599,74 @@ private class EmailPreparationCommandTest {
     System.assertEquals(null, oppResult.status, 'Status should not be set yet');
     System.assertEquals(null, oppResult.reason, 'Reason should not be set yet');
   }
+
+  @isTest
+  static void testGetDefaultOrgWideEmailAddressId_DefaultExists() {
+    // Create mock org-wide email address
+    OrgWideEmailAddress mockAddress = new OrgWideEmailAddress();
+    mockAddress.Id = '0D2000000000001AAA';
+    mockAddress.Purpose = 'DefaultNoReply';
+
+    // Create and inject mock service
+    IOrgWideEmailService mockService = (IOrgWideEmailService) Test.createStub(
+      IOrgWideEmailService.class,
+      new MockOrgWideEmailService(mockAddress)
+    );
+
+    Test.startTest();
+    EmailPreparationCommand.orgWideEmailService = mockService;
+    Id result = EmailPreparationCommand.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      mockAddress.Id,
+      result,
+      'Should return the default no-reply address ID when Purpose = DefaultNoReply'
+    );
+  }
+
+  @isTest
+  static void testGetDefaultOrgWideEmailAddressId_SelectionAndDefaultExists() {
+    // Create mock org-wide email address
+    OrgWideEmailAddress mockAddress = new OrgWideEmailAddress();
+    mockAddress.Id = '0D2000000000001AAA';
+    mockAddress.Purpose = 'UserSelectionAndDefaultNoReply';
+
+    // Create and inject mock service
+    IOrgWideEmailService mockService = (IOrgWideEmailService) Test.createStub(
+      IOrgWideEmailService.class,
+      new MockOrgWideEmailService(mockAddress)
+    );
+
+    Test.startTest();
+    EmailPreparationCommand.orgWideEmailService = mockService;
+    Id result = EmailPreparationCommand.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      mockAddress.Id,
+      result,
+      'Should return the default no-reply address ID when Purpose = UserSelectionAndDefaultNoReply'
+    );
+  }
+
+  @isTest
+  static void testGetDefaultOrgWideEmailAddressId_NoDefaultExists() {
+    // Create mock service that returns null
+    IOrgWideEmailService mockService = (IOrgWideEmailService) Test.createStub(
+      IOrgWideEmailService.class,
+      new MockOrgWideEmailService(null)
+    );
+
+    Test.startTest();
+    EmailPreparationCommand.orgWideEmailService = mockService;
+    Id result = EmailPreparationCommand.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      result,
+      'Should return null when no default exists'
+    );
+  }
 }
