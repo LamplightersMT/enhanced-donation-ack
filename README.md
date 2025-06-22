@@ -23,6 +23,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
    1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel to the "Related" tab
 1. Configure a default org-wide email address in `Setup > Email > Organization-Wide Addresses`
    - This must be the Default No-Reply Address for your organization
+   - If no Default No-Reply Address is set, it will fall back to the individual user
 
 ## Known Limitations
 
@@ -89,8 +90,8 @@ The system uses discrete command objects that implement `IAcknowledgementCommand
 
 ```
 Opportunities → Validation → Email Prep → Email Send → DB Update → Result Aggregation
-     ↓              ↓           ↓           ↓           ↓            ↓
-  Filter invalid  Create emails Send emails Update Acks  Final report
+     ↓                          ↓           ↓           ↓            ↓
+  Filter invalid           Create emails Send emails Update Acks  Final report
 ```
 
 ### Key Features
