@@ -23,292 +23,17 @@ private class DonationAcknowledgementServiceTest {
     // (Assume template/folder already deployed in metadata, so just query in test)
   }
 
-  // ===== HELPER METHODS =====
+  // ===== HELPER METHODS - NOW USING SHARED UTILS =====
 
-  /**
-   * Create a test contact with specified email (or default test email)
-   */
-  private static Contact createTestContact(String email) {
-    if (String.isBlank(email)) {
-      email = 'testuser@example.com';
-    }
-    Contact c = new Contact(
-      FirstName = 'Test',
-      LastName = 'User',
-      Email = email
-    );
-    insert c;
-    return c;
-  }
-
-  /**
-   * Create a test contact with no email address
-   */
-  private static Contact createTestContactWithoutEmail() {
-    Contact c = new Contact(
-      FirstName = 'No Email',
-      LastName = 'Contact'
-      // No Email field
-    );
-    insert c;
-    return c;
-  }
-
-  /**
-   * Create a test opportunity with specified parameters
-   */
-  private static Opportunity createTestOpportunity(
-    String name,
-    Contact contact,
-    Date ackDate,
-    Decimal amount
-  ) {
-    Opportunity opp = new Opportunity(
-      Name = name,
-      StageName = 'Closed Won',
-      CloseDate = Date.today(),
-      Amount = amount != null ? amount : 100,
-      ContactId = contact != null ? contact.Id : null
-    );
-    if (ackDate != null) {
-      opp.npsp__Acknowledgment_Date__c = ackDate;
-    }
-    insert opp;
-    return opp;
-  }
-
-  /**
-   * Create an OpportunityIdWrapper for invocable tests
-   */
-  private static DonationAcknowledgementService.OpportunityIdWrapper createWrapper(
-    List<Id> oppIds
-  ) {
-    DonationAcknowledgementService.OpportunityIdWrapper wrapper = new DonationAcknowledgementService.OpportunityIdWrapper();
-    wrapper.opportunityIds = oppIds;
-    return wrapper;
-  }
-
-  /**
-   * Create a list of wrapper inputs for invocable tests
-   */
-  private static List<DonationAcknowledgementService.OpportunityIdWrapper> createWrapperInput(
-    List<Id> oppIds
-  ) {
-    return new List<DonationAcknowledgementService.OpportunityIdWrapper>{
-      createWrapper(oppIds)
-    };
-  }
-
-  /**
-   * Create mixed scenario opportunities for comprehensive testing
-   * Returns a map with keys: 'success', 'acknowledged', 'noContact', 'noEmail'
-   */
-  private static Map<String, Opportunity> createMixedScenarioOpportunities() {
-    Contact validContact = [SELECT Id FROM Contact LIMIT 1];
-    Contact noEmailContact = createTestContactWithoutEmail();
-
-    Opportunity successOpp = createTestOpportunity(
-      'Success Opp',
-      validContact,
-      null,
-      100
-    );
-    Opportunity acknowledgedOpp = createTestOpportunity(
-      'Already Acknowledged Opp',
-      validContact,
-      Date.today().addDays(-1),
-      200
-    );
-    Opportunity noContactOpp = createTestOpportunity(
-      'No Contact Opp',
-      null,
-      null,
-      150
-    );
-    Opportunity noEmailOpp = createTestOpportunity(
-      'No Email Opp',
-      noEmailContact,
-      null,
-      75
-    );
-
-    return new Map<String, Opportunity>{
-      'success' => successOpp,
-      'acknowledged' => acknowledgedOpp,
-      'noContact' => noContactOpp,
-      'noEmail' => noEmailOpp
-    };
-  }
-
-  /**
-   * Query opportunity with acknowledgment date field
-   */
-  private static Opportunity queryOpportunityWithAckDate(Id oppId) {
-    return [
-      SELECT Id, npsp__Acknowledgment_Date__c
-      FROM Opportunity
-      WHERE Id = :oppId
-      LIMIT 1
-    ];
-  }
-
-  /**
-   * Query opportunities with acknowledgment date field
-   */
-  private static List<Opportunity> queryOpportunitiesWithAckDate(
-    List<Id> oppIds
-  ) {
-    return [
-      SELECT Id, Name, npsp__Acknowledgment_Date__c
-      FROM Opportunity
-      WHERE Id IN :oppIds
-      ORDER BY Name
-    ];
-  }
-
-  /**
-   * Query opportunities with all fields needed for service calls
-   */
-  private static List<Opportunity> queryOpportunitiesFullFields(
-    List<Id> oppIds
-  ) {
-    return [
-      SELECT
-        Id,
-        Name,
-        Amount,
-        StageName,
-        CloseDate,
-        AccountId,
-        ContactId,
-        npsp__Acknowledgment_Date__c
-      FROM Opportunity
-      WHERE Id IN :oppIds
-    ];
-  }
-
-  /**
-   * Assert that acknowledgment date is set to a specific date (captures test execution date)
-   */
-  private static void assertAcknowledgmentDateSet(Id oppId, Date expectedDate) {
-    Opportunity updatedOpp = queryOpportunityWithAckDate(oppId);
-    System.assertEquals(
-      expectedDate,
-      updatedOpp.npsp__Acknowledgment_Date__c,
-      'Acknowledgment date should be set to expected date'
-    );
-  }
-
-  /**
-   * Assert that acknowledgment date is set to today (using test execution date)
-   */
-  private static void assertAcknowledgmentDateSetToday(Id oppId) {
-    Opportunity updatedOpp = queryOpportunityWithAckDate(oppId);
-    System.assertNotEquals(
-      null,
-      updatedOpp.npsp__Acknowledgment_Date__c,
-      'Acknowledgment date should be set'
-    );
-
-    // Check that the date is within a reasonable range (today or yesterday to handle midnight edge cases)
-    Date ackDate = updatedOpp.npsp__Acknowledgment_Date__c;
-    Date today = Date.today();
-    Date yesterday = today.addDays(-1);
-
-    System.assert(
-      ackDate == today || ackDate == yesterday,
-      'Acknowledgment date should be set to today or yesterday (for midnight edge cases). Expected: ' +
-        today +
-        ' or ' +
-        yesterday +
-        ', Actual: ' +
-        ackDate
-    );
-  }
-
-  /**
-   * Assert common detailed result counts
-   */
-  private static void assertDetailedResultCounts(
-    DonationAcknowledgementService.DetailedAckResult result,
-    Integer expectedTotal,
-    Integer expectedSent,
-    Integer expectedAcknowledged,
-    Integer expectedNoContact,
-    Integer expectedFailures
-  ) {
-    System.assertEquals(
-      expectedTotal,
-      result.totalOpportunities,
-      'Should have expected total opportunities'
-    );
-    System.assertEquals(
-      expectedSent,
-      result.emailsSent,
-      'Should have expected emails sent'
-    );
-    System.assertEquals(
-      expectedAcknowledged,
-      result.alreadyAcknowledged,
-      'Should have expected already acknowledged'
-    );
-    System.assertEquals(
-      expectedNoContact,
-      result.noValidContact,
-      'Should have expected no valid contact'
-    );
-    System.assertEquals(
-      expectedFailures,
-      result.emailSendFailures,
-      'Should have expected email failures'
-    );
-  }
-
-  /**
-   * Create a map of opportunity results by name for easy lookup in tests
-   */
-  private static Map<String, DonationAcknowledgementService.OpportunityResult> createResultsByNameMap(
-    List<DonationAcknowledgementService.OpportunityResult> results
-  ) {
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = new Map<String, DonationAcknowledgementService.OpportunityResult>();
-    for (DonationAcknowledgementService.OpportunityResult result : results) {
-      resultsByName.put(result.opportunityName, result);
-    }
-    return resultsByName;
-  }
-
-  /**
-   * Assert opportunity result by name with expected status and partial reason match
-   */
-  private static void assertOpportunityResult(
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName,
-    String oppName,
-    DonationAcknowledgementService.AckStatus expectedStatus,
-    String reasonContains
-  ) {
-    DonationAcknowledgementService.OpportunityResult result = resultsByName.get(
-      oppName
-    );
-    System.assertNotEquals(null, result, 'Should have result for ' + oppName);
-    System.assertEquals(
-      expectedStatus,
-      result.status,
-      'Should have expected status for ' + oppName
-    );
-    if (String.isNotBlank(reasonContains)) {
-      System.assert(
-        result.reason.contains(reasonContains),
-        'Reason should contain expected text for ' + oppName
-      );
-    }
-  }
+  // All helper methods have been moved to AcknowledgementTestUtils
+  // for reuse across multiple test classes
 
   // ===== END HELPER METHODS =====
 
   @isTest
   static void testSendAcknowledgementsWithTemplate() {
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
-    List<DonationAcknowledgementService.OpportunityIdWrapper> input = createWrapperInput(
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = AcknowledgementTestUtils.createWrapperInput(
       new List<Id>{ opp.Id }
     );
 
@@ -324,7 +49,7 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Emails sent: 1'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id);
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -334,7 +59,7 @@ private class DonationAcknowledgementServiceTest {
     DonationAcknowledgementService.donationAckTemplateFolder = 'DoesNotExistFolder';
 
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
-    List<DonationAcknowledgementService.OpportunityIdWrapper> input = createWrapperInput(
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = AcknowledgementTestUtils.createWrapperInput(
       new List<Id>{ opp.Id }
     );
 
@@ -350,12 +75,12 @@ private class DonationAcknowledgementServiceTest {
     System.assert(result[0].summaryMessage.contains('Static content fallback'));
 
     // Verify acknowledgement date is set
-    assertAcknowledgmentDateSetToday(opp.Id);
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
   static void testNoOpportunities() {
-    List<DonationAcknowledgementService.OpportunityIdWrapper> input = createWrapperInput(
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = AcknowledgementTestUtils.createWrapperInput(
       new List<Id>()
     );
 
@@ -382,7 +107,7 @@ private class DonationAcknowledgementServiceTest {
   @isTest
   static void testEmailSendingFailureDoesNotUpdateAcknowledgmentDate() {
     // This test verifies that if email sending fails, acknowledgment dates are not updated
-    Opportunity opp = queryOpportunityWithAckDate(
+    Opportunity opp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
       [SELECT Id FROM Opportunity LIMIT 1].Id
     );
 
@@ -408,7 +133,7 @@ private class DonationAcknowledgementServiceTest {
       System.assert(result.emailsSent > 0, 'Should indicate emails were sent');
 
       // Verify acknowledgment date was set on success
-      assertAcknowledgmentDateSetToday(opp.Id);
+      AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
     } catch (AuraHandledException e) {
       // If email sending failed (unlikely in test context), verify acknowledgment date was not set
       System.assert(
@@ -416,7 +141,9 @@ private class DonationAcknowledgementServiceTest {
         'Exception should indicate email sending failure'
       );
 
-      Opportunity updatedOpp = queryOpportunityWithAckDate(opp.Id);
+      Opportunity updatedOpp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
+        opp.Id
+      );
       System.assertEquals(
         null,
         updatedOpp.npsp__Acknowledgment_Date__c,
@@ -427,78 +154,24 @@ private class DonationAcknowledgementServiceTest {
   }
 
   @isTest
-  static void testSendEmailsCoreWithTemplateConfig() {
-    // Test the core method directly with template configuration
-    // Note: In test context, we can't create actual EmailTemplate records,
-    // so this test will verify the method executes but may not send actual emails
-    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
-    List<Opportunity> opps = queryOpportunitiesFullFields(
-      new List<Id>{ opp.Id }
-    );
-
-    // Use a realistic looking template ID format
-    Id mockTemplateId = '00X000000000000AAA'; // Mock template ID in correct format
-
-    Test.startTest();
-    try {
-      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
-        opps,
-        new DonationAcknowledgementService.EmailConfig(mockTemplateId)
-      );
-      // If we get here, the method executed successfully
-      System.assert(result.emailsSent >= 0, 'Should return a valid count');
-    } catch (Exception e) {
-      // In test context, template-based emails may fail due to missing template or invalid ID format
-      // This is expected behavior - the important thing is that the method doesn't crash unexpectedly
-      System.assert(
-        e.getMessage().contains('Failed to send acknowledgement emails') ||
-          e.getMessage().contains('Data Not Available') ||
-          e.getMessage().contains('Invalid parameter value'),
-        'Should get expected email sending error: ' + e.getMessage()
-      );
-    }
-    Test.stopTest();
-  }
-
-  @isTest
-  static void testSendEmailsCoreWithStaticConfig() {
-    // Test the core method directly with static content configuration
-    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
-    List<Opportunity> opps = queryOpportunitiesFullFields(
-      new List<Id>{ opp.Id }
-    );
-
-    Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
-      opps,
-      new DonationAcknowledgementService.EmailConfig(
-        'Test Subject',
-        'Test Body'
-      )
-    );
-    Test.stopTest();
-
-    // Should return 1 (one email processed)
-    System.assertEquals(1, result.emailsSent, 'Should process one opportunity');
-
-    // Verify acknowledgment date was set
-    assertAcknowledgmentDateSetToday(opp.Id);
-  }
-
-  @isTest
   static void testDuplicatePreventionSkipsAcknowledgedOpportunities() {
     // Create test data with one already acknowledged opportunity
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
     // Create two opportunities - one already acknowledged, one not
-    Opportunity acknowledgedOpp = createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
       'Already Acknowledged Opp',
       c,
       Date.today().addDays(-1), // Already acknowledged
       200
     );
 
-    Opportunity newOpp = createTestOpportunity('New Opp', c, null, 100);
+    Opportunity newOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'New Opp',
+      c,
+      null,
+      100
+    );
 
     List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id, newOpp.Id };
 
@@ -526,7 +199,9 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Verify only the new opportunity got acknowledgment date updated
-    List<Opportunity> updatedOpps = queryOpportunitiesWithAckDate(oppIds);
+    List<Opportunity> updatedOpps = AcknowledgementTestUtils.queryOpportunitiesWithAckDate(
+      oppIds
+    );
 
     // Already acknowledged opp should keep its original date
     System.assertEquals(
@@ -536,7 +211,9 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // New opp should get today's date
-    assertAcknowledgmentDateSetToday(updatedOpps[1].Id);
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(
+      updatedOpps[1].Id
+    );
   }
 
   @isTest
@@ -544,7 +221,7 @@ private class DonationAcknowledgementServiceTest {
     // Test scenario where all opportunities are already acknowledged
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
-    Opportunity acknowledgedOpp = createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
       'Already Acknowledged Opp',
       c,
       Date.today().addDays(-1), // Already acknowledged
@@ -570,62 +247,6 @@ private class DonationAcknowledgementServiceTest {
       1,
       result.alreadyAcknowledged,
       'Should show 1 already acknowledged'
-    );
-  }
-
-  @isTest
-  static void testSendEmailsCoreWithResultReturnsMigratedFunctionality() {
-    // Test that legacy functionality is now handled by DetailedAckResult
-    Map<String, Opportunity> testOpps = createMixedScenarioOpportunities();
-
-    List<Opportunity> opps = queryOpportunitiesFullFields(
-      new List<Id>{
-        testOpps.get('acknowledged').Id,
-        testOpps.get('success').Id,
-        testOpps.get('noContact').Id
-      }
-    );
-
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
-
-    Test.startTest();
-    // Test the new detailed method instead of the old EmailSendResult method
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
-    Test.stopTest();
-
-    // Verify detailed counts (same functionality, richer data structure)
-    assertDetailedResultCounts(result, 3, 1, 1, 1, 0);
-
-    // Verify enhanced functionality not available in old EmailSendResult
-    System.assertEquals(
-      3,
-      result.opportunityResults.size(),
-      'Should have individual opportunity results'
-    );
-
-    // Verify summary message
-    String summary = result.buildSummaryMessage();
-    System.assert(
-      summary.contains('3 Opportunities'),
-      'Summary should show total count'
-    );
-    System.assert(
-      summary.contains('Emails sent: 1'),
-      'Summary should show emails sent'
-    );
-    System.assert(
-      summary.contains('Already acknowledged: 1'),
-      'Summary should show already acknowledged'
-    );
-    System.assert(
-      summary.contains('No valid contact: 1'),
-      'Summary should show no valid contact'
     );
   }
 
@@ -821,10 +442,20 @@ private class DonationAcknowledgementServiceTest {
     // Test the detailed core method with successful opportunities
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
-    Opportunity opp1 = createTestOpportunity('Success Opp 1', c, null, 100);
-    Opportunity opp2 = createTestOpportunity('Success Opp 2', c, null, 200);
+    Opportunity opp1 = AcknowledgementTestUtils.createTestOpportunity(
+      'Success Opp 1',
+      c,
+      null,
+      100
+    );
+    Opportunity opp2 = AcknowledgementTestUtils.createTestOpportunity(
+      'Success Opp 2',
+      c,
+      null,
+      200
+    );
 
-    List<Opportunity> opps = queryOpportunitiesFullFields(
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp1.Id, opp2.Id }
     );
 
@@ -834,14 +465,14 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       config
     );
     Test.stopTest();
 
     // Verify detailed results
-    assertDetailedResultCounts(result, 2, 2, 0, 0, 0);
+    AcknowledgementTestUtils.assertDetailedResultCounts(result, 2, 2, 0, 0, 0);
 
     // Verify individual opportunity results
     System.assertEquals(
@@ -876,21 +507,21 @@ private class DonationAcknowledgementServiceTest {
     }
 
     // Verify acknowledgment dates were set in database
-    List<Opportunity> updatedOpps = queryOpportunitiesWithAckDate(
+    List<Opportunity> updatedOpps = AcknowledgementTestUtils.queryOpportunitiesWithAckDate(
       new List<Id>{ opp1.Id, opp2.Id }
     );
 
     for (Opportunity updatedOpp : updatedOpps) {
-      assertAcknowledgmentDateSetToday(updatedOpp.Id);
+      AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(updatedOpp.Id);
     }
   }
 
   @isTest
   static void testSendEmailsCoreDetailedWithMixedScenarios() {
     // Test detailed method with various scenarios
-    Map<String, Opportunity> testOpps = createMixedScenarioOpportunities();
+    Map<String, Opportunity> testOpps = AcknowledgementTestUtils.createMixedScenarioOpportunities();
 
-    List<Opportunity> opps = queryOpportunitiesFullFields(
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
         testOpps.get('success').Id,
         testOpps.get('acknowledged').Id,
@@ -905,14 +536,14 @@ private class DonationAcknowledgementServiceTest {
     );
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
       opps,
       config
     );
     Test.stopTest();
 
     // Verify aggregated counts
-    assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
+    AcknowledgementTestUtils.assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
 
     // Verify individual results by status
     List<DonationAcknowledgementService.OpportunityResult> successfulResults = result.getSuccessfulResults();
@@ -939,12 +570,12 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Find and verify specific skipped results using helper
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = createResultsByNameMap(
+    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
       result.opportunityResults
     );
 
     // Verify already acknowledged opportunity
-    assertOpportunityResult(
+    AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Already Acknowledged Opp',
       DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
@@ -952,7 +583,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Verify no contact opportunity
-    assertOpportunityResult(
+    AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'No Contact Opp',
       DonationAcknowledgementService.AckStatus.NO_CONTACT,
@@ -960,7 +591,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Verify no email opportunity
-    assertOpportunityResult(
+    AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'No Email Opp',
       DonationAcknowledgementService.AckStatus.NO_EMAIL,
@@ -1010,7 +641,7 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
 
     // Verify DetailedAckResult structure and content
-    assertDetailedResultCounts(result, 1, 1, 0, 0, 0);
+    AcknowledgementTestUtils.assertDetailedResultCounts(result, 1, 1, 0, 0, 0);
     System.assert(
       result.emailType.contains('Template used'),
       'Should indicate template usage'
@@ -1050,7 +681,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Verify acknowledgment date was set in database
-    assertAcknowledgmentDateSetToday(opp.Id);
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
   }
 
   @isTest
@@ -1069,7 +700,7 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
 
     // Verify fallback to static content
-    assertDetailedResultCounts(result, 1, 1, 0, 0, 0);
+    AcknowledgementTestUtils.assertDetailedResultCounts(result, 1, 1, 0, 0, 0);
     System.assert(
       result.emailType.contains('Static content fallback'),
       'Should indicate static fallback'
@@ -1101,7 +732,7 @@ private class DonationAcknowledgementServiceTest {
     Test.stopTest();
 
     // Verify graceful handling of empty input
-    assertDetailedResultCounts(result, 0, 0, 0, 0, 0);
+    AcknowledgementTestUtils.assertDetailedResultCounts(result, 0, 0, 0, 0, 0);
     System.assertEquals(
       0,
       result.opportunityResults.size(),
@@ -1120,8 +751,13 @@ private class DonationAcknowledgementServiceTest {
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
     // Create mixed scenario opportunities
-    Opportunity successOpp = createTestOpportunity('Success Opp', c, null, 100);
-    Opportunity acknowledgedOpp = createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Success Opp',
+      c,
+      null,
+      100
+    );
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
       'Already Acknowledged Opp',
       c,
       Date.today().addDays(-1), // Already acknowledged
@@ -1140,12 +776,12 @@ private class DonationAcknowledgementServiceTest {
     System.assertEquals(2, results.size(), 'Should have 2 opportunity results');
 
     // Find results by opportunity name using helper
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = createResultsByNameMap(
+    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
       results
     );
 
     // Verify successful opportunity
-    assertOpportunityResult(
+    AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Success Opp',
       DonationAcknowledgementService.AckStatus.SUCCESS,
@@ -1158,7 +794,7 @@ private class DonationAcknowledgementServiceTest {
     System.assertEquals('testuser@example.com', successResult.contactEmail);
 
     // Verify already acknowledged opportunity
-    assertOpportunityResult(
+    AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Already Acknowledged Opp',
       DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,

@@ -34,6 +34,10 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 - Select org-wide email address to use
 - Add resend feature
+- Enhance output from flows to show which Opportunities succeeded/errored
+
+## Future Roadmap
+
 - Add option to edit email before sending
 - Add option to select different email templates?
 - Improvements to Lightning Web Components
