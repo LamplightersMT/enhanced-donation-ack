@@ -2,15 +2,22 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>AcknowledgementCommandOutputs</members>
+        <members>AcknowledgementTestUtils</members>
         <members>DatabaseUpdateCommand</members>
+        <members>DatabaseUpdateCommandTest</members>
         <members>DonationAcknowledgementService</members>
         <members>DonationAcknowledgementServiceImpl</members>
+        <members>DonationAcknowledgementServiceImplTest</members>
         <members>DonationAcknowledgementServiceTest</members>
         <members>EmailPreparationCommand</members>
+        <members>EmailPreparationCommandTest</members>
         <members>EmailSendCommand</members>
+        <members>EmailSendCommandTest</members>
         <members>IAcknowledgementCommand</members>
         <members>OpportunityValidationCommand</members>
+        <members>OpportunityValidationCommandTest</members>
         <members>ResultAggregationCommand</members>
+        <members>ResultAggregationCommandTest</members>
         <name>ApexClass</name>
     </types>
     <types>
@@ -42,5 +49,5 @@
         <members>Enhanced_Donation_Acknowledgements_Example_Letterhead</members>
         <name>Letterhead</name>
     </types>
-    <version>60.0</version>
+    <version>61.0</version>
 </Package>

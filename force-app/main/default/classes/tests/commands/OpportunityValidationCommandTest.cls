@@ -1,0 +1,369 @@
+/**
+ * Test class for OpportunityValidationCommand
+ * Tests opportunity validation logic, filtering, and error handling
+ */
+@isTest
+private class OpportunityValidationCommandTest {
+  @testSetup
+  static void setupTestData() {
+    // Use shared test utils for setup
+    Contact c = AcknowledgementTestUtils.createTestContact(
+      'testuser@example.com'
+    );
+    Opportunity opp = AcknowledgementTestUtils.createTestOpportunity(
+      'Test Opp',
+      c,
+      null,
+      100
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesWithValidOpportunity() {
+    // Test validation with a valid opportunity
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity validOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Valid Opp',
+      c,
+      null, // No acknowledgment date
+      100
+    );
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ validOpp.Id }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify valid opportunity is returned
+    System.assertEquals(1, validOpps.size(), 'Should have 1 valid opportunity');
+    System.assertEquals(
+      validOpp.Id,
+      validOpps[0].Id,
+      'Should be the valid opportunity'
+    );
+
+    // Verify no skipped opportunities added to result
+    System.assertEquals(
+      0,
+      result.opportunityResults.size(),
+      'Should have no skipped results'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesWithAlreadyAcknowledged() {
+    // Test validation with already acknowledged opportunity
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Already Acknowledged Opp',
+      c,
+      Date.today().addDays(-1), // Already acknowledged
+      200
+    );
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ acknowledgedOpp.Id }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify no valid opportunities returned
+    System.assertEquals(
+      0,
+      validOpps.size(),
+      'Should have no valid opportunities'
+    );
+
+    // Verify skipped opportunity added to result
+    System.assertEquals(
+      1,
+      result.opportunityResults.size(),
+      'Should have 1 skipped result'
+    );
+    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    System.assertEquals(
+      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      oppResult.status,
+      'Should be already acknowledged'
+    );
+    System.assert(
+      oppResult.reason.contains('already acknowledged'),
+      'Reason should mention already acknowledged'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesWithNoContact() {
+    // Test validation with opportunity that has no contact
+    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'No Contact Opp',
+      null, // No contact
+      null,
+      150
+    );
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ noContactOpp.Id }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify no valid opportunities returned
+    System.assertEquals(
+      0,
+      validOpps.size(),
+      'Should have no valid opportunities'
+    );
+
+    // Verify skipped opportunity added to result
+    System.assertEquals(
+      1,
+      result.opportunityResults.size(),
+      'Should have 1 skipped result'
+    );
+    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    System.assertEquals(
+      DonationAcknowledgementService.AckStatus.NO_CONTACT,
+      oppResult.status,
+      'Should be no contact'
+    );
+    System.assert(
+      oppResult.reason.contains('no associated Contact'),
+      'Reason should mention no contact'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesWithNoEmail() {
+    // Test validation with contact that has no email
+    Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
+    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'No Email Opp',
+      noEmailContact,
+      null,
+      175
+    );
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ noEmailOpp.Id }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify no valid opportunities returned
+    System.assertEquals(
+      0,
+      validOpps.size(),
+      'Should have no valid opportunities'
+    );
+
+    // Verify skipped opportunity added to result
+    System.assertEquals(
+      1,
+      result.opportunityResults.size(),
+      'Should have 1 skipped result'
+    );
+    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    System.assertEquals(
+      DonationAcknowledgementService.AckStatus.NO_EMAIL,
+      oppResult.status,
+      'Should be no email'
+    );
+    System.assert(
+      oppResult.reason.contains('no email address'),
+      'Reason should mention no email'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesMixedScenarios() {
+    // Test validation with mixed scenarios
+    Map<String, Opportunity> testOpps = AcknowledgementTestUtils.createMixedScenarioOpportunities();
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{
+        testOpps.get('success').Id,
+        testOpps.get('acknowledged').Id,
+        testOpps.get('noContact').Id,
+        testOpps.get('noEmail').Id
+      }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify only 1 valid opportunity (success)
+    System.assertEquals(1, validOpps.size(), 'Should have 1 valid opportunity');
+    System.assertEquals(
+      testOpps.get('success').Id,
+      validOpps[0].Id,
+      'Should be the success opportunity'
+    );
+
+    // Verify 3 skipped opportunities added to result
+    System.assertEquals(
+      3,
+      result.opportunityResults.size(),
+      'Should have 3 skipped results'
+    );
+
+    // Verify specific skipped statuses
+    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+      result.opportunityResults
+    );
+
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Already Acknowledged Opp',
+      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      'already acknowledged'
+    );
+
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'No Contact Opp',
+      DonationAcknowledgementService.AckStatus.NO_CONTACT,
+      'no associated Contact'
+    );
+
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'No Email Opp',
+      DonationAcknowledgementService.AckStatus.NO_EMAIL,
+      'no email address'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesEmptyList() {
+    // Test validation with empty opportunity list
+    List<Opportunity> emptyOpps = new List<Opportunity>();
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      emptyOpps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify empty results
+    System.assertEquals(
+      0,
+      validOpps.size(),
+      'Should have no valid opportunities'
+    );
+    System.assertEquals(
+      0,
+      result.opportunityResults.size(),
+      'Should have no skipped results'
+    );
+  }
+
+  @isTest
+  static void testValidateOpportunitiesBulkProcessing() {
+    // Test validation with multiple opportunities to verify bulk processing
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    List<Id> oppIds = new List<Id>();
+    for (Integer i = 0; i < 5; i++) {
+      Opportunity bulkOpp = AcknowledgementTestUtils.createTestOpportunity(
+        'Bulk Valid Opp ' + i,
+        c,
+        null,
+        100 + (i * 50)
+      );
+      oppIds.add(bulkOpp.Id);
+    }
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      oppIds
+    );
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify all opportunities are valid
+    System.assertEquals(
+      5,
+      validOpps.size(),
+      'Should have 5 valid opportunities'
+    );
+    System.assertEquals(
+      0,
+      result.opportunityResults.size(),
+      'Should have no skipped results'
+    );
+
+    // Verify all opportunity IDs are present
+    Set<Id> validOppIds = new Set<Id>();
+    for (Opportunity validOpp : validOpps) {
+      validOppIds.add(validOpp.Id);
+    }
+    System.assertEquals(
+      oppIds.size(),
+      validOppIds.size(),
+      'Should have all original opportunity IDs'
+    );
+    for (Id oppId : oppIds) {
+      System.assert(
+        validOppIds.contains(oppId),
+        'Should contain opportunity ID: ' + oppId
+      );
+    }
+  }
+}
