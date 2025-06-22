@@ -33,3 +33,7 @@ Never use emoji in commit messages or comments. It's ok to use emoji in the Read
 When renaming files use 'git mv' to preserve history
 
 tail apex logs with `sf apex log tail --debug-level SFDC_DevConsole`
+
+When doing dependency injection, use mutable instance variables instead of constructor injection when possible.
+
+When we are preparing a plan and make changes to it, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
