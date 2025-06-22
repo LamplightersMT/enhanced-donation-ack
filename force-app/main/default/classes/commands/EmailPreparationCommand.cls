@@ -68,16 +68,26 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
   }
 
   /**
-   * Helper to get the default org-wide email address Id (first active one, or null if none found)
+   * Helper to get the org-wide email address Id set as the organization's Default No-Reply Address.
+   * Returns null if none is configured as default.
+   * See: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm
    */
   private static Id getDefaultOrgWideEmailAddressId() {
-    // TODO: Is there a way to configure or identify this?
-    OrgWideEmailAddress[] orgWideEmails = [
-      SELECT Id
+    // First, try to find the address with Purpose containing 'DefaultNoReply'
+    OrgWideEmailAddress[] defaultNoReply = [
+      SELECT Id, Purpose
       FROM OrgWideEmailAddress
+      WHERE Purpose IN ('UserSelectionAndDefaultNoReply', 'DefaultNoReply')
       ORDER BY Address ASC
       LIMIT 1
     ];
-    return orgWideEmails.isEmpty() ? null : orgWideEmails[0].Id;
+    if (defaultNoReply.isEmpty()) {
+      System.debug(
+        LoggingLevel.WARN,
+        'No org-wide email address is configured as Default No-Reply Address.'
+      );
+      return null;
+    }
+    return defaultNoReply[0].Id;
   }
 }

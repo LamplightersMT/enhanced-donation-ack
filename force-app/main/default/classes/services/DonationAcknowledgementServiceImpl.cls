@@ -117,20 +117,6 @@ public with sharing class DonationAcknowledgementServiceImpl {
   }
 
   /**
-   * Helper to get the default org-wide email address Id (first active one, or null if none found)
-   */
-  private static Id getDefaultOrgWideEmailAddressId() {
-    // TODO: Is there a way to configure or identify this?
-    OrgWideEmailAddress[] orgWideEmails = [
-      SELECT Id
-      FROM OrgWideEmailAddress
-      ORDER BY Address ASC
-      LIMIT 1
-    ];
-    return orgWideEmails.isEmpty() ? null : orgWideEmails[0].Id;
-  }
-
-  /**
    * Core email sending logic with detailed individual opportunity tracking.
    * Returns DetailedAckResult with specific status and reason codes for each opportunity.
    * Now implemented using Command pattern for better separation of concerns.
