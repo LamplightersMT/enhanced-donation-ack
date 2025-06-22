@@ -24,3 +24,7 @@ Only test code coverage at the end of the development process, not during develo
 I review your code changes in detail only after all tests pass. Make sure to get confirmation before moving on to the next step.
 
 Run code coverage tests synchronously, not asynchronously. Use the `--synchronous` flag with the `sf apex test run` command.
+
+Never use emoji in commit messages or comments.
+
+When renaming files use 'git mv' to preserve history
