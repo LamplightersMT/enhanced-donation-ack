@@ -1,15 +1,16 @@
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
 This project implements automated email donation acknowledgements similar to Salesforce NPSP. Use Apex, triggers, and LWC best practices.
-Ensure all emails are stored as EmailMessage records
 
 Your audience is experienced software developers who are new to Salesforce development. Provide clear, concise instructions and examples.
 
 Use the newer 'sf' CLI commands instead of the older 'sfdx' commands
 
-Use 4 spaces for indentation, no tabs. ALWAYS USE 4 SPACES FOR INDENTATION. NEVER USE 2 SPACES FOR INDENTATION.
+When you add a new file always do the following:
 
-Any time you add a new file, add an appropriate metadata .xml file if applicable and update the package manifest.
+1. Add the file to the appropriate directory in the project.
+1. Add a metadata .xml file if applicable.
+1. Update the package manifest file (package.xml) to include the new file.
 
 Any time you add or update a metadata .xml file, be sure that all tags are supported by the current version of the Salesforce API. Ensure that there is a comment to the top of the metatdata file that includes a link to the documentation for the .xml file format.
 
@@ -19,12 +20,16 @@ Never remove TODO comments unless you have completed the task.
 
 Test script is located at scripts/run_all_tests.sh - This test script does not run code coverage, it only runs tests.
 
+All deploys are done using the manifest file (package.xml) or individual files.
+
 Only test code coverage at the end of the development process, not during development.
 
 I review your code changes in detail only after all tests pass. Make sure to get confirmation before moving on to the next step.
 
-Run code coverage tests synchronously, not asynchronously. Use the `--synchronous` flag with the `sf apex test run` command.
+Run code coverage tests synchronously, not asynchronously. Use the `--synchronous` flag with the `sf apex test run` command. Don't use the --wait flag for code coverage reports.
 
-Never use emoji in commit messages or comments.
+Never use emoji in commit messages or comments. It's ok to use emoji in the Readme file.
 
 When renaming files use 'git mv' to preserve history
+
+tail apex logs with `sf apex log tail --debug-level SFDC_DevConsole`
