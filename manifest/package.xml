@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
+        <members>AcknowledgementCommandOutputs</members>
+        <members>DatabaseUpdateCommand</members>
         <members>DonationAcknowledgementService</members>
         <members>DonationAcknowledgementServiceImpl</members>
         <members>DonationAcknowledgementServiceTest</members>
+        <members>EmailPreparationCommand</members>
+        <members>EmailSendCommand</members>
+        <members>IAcknowledgementCommand</members>
+        <members>OpportunityValidationCommand</members>
+        <members>ResultAggregationCommand</members>
         <name>ApexClass</name>
     </types>
     <types>

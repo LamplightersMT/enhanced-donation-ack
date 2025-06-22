@@ -26,6 +26,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 - Enhance output from flows to show which Opportunities succeeded/errored
 - Enhanced email delivery error checking ✅ **IMPLEMENTED**
 - Check whether an opportunity has already been acknowledged ✅ **IMPLEMENTED**
+- Support partial email failures by collecting and examining individual Messaging.SendEmailResult objects for granular error handling
 
 ## Future Roadmap
 

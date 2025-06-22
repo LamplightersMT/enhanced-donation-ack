@@ -58,6 +58,7 @@ public with sharing class DonationAcknowledgementService {
   }
 
   // Individual opportunity result with detailed tracking
+  // TODO: This is growing in importance, we might want to rename it
   @TestVisible
   public class OpportunityResult {
     @AuraEnabled

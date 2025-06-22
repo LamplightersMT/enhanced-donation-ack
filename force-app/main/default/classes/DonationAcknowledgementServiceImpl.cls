@@ -133,6 +133,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
   /**
    * Core email sending logic with detailed individual opportunity tracking.
    * Returns DetailedAckResult with specific status and reason codes for each opportunity.
+   * Now implemented using Command pattern for better separation of concerns.
    */
   @TestVisible
   public static DonationAcknowledgementService.DetailedAckResult sendEmailsCoreDetailed(
@@ -141,192 +142,59 @@ public with sharing class DonationAcknowledgementServiceImpl {
   ) {
     DonationAcknowledgementService.DetailedAckResult detailedResult = new DonationAcknowledgementService.DetailedAckResult();
 
-    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
-    Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+    // Command orchestration - each command handles a specific responsibility
 
-    // Bulk query for all Contacts related to the Opportunities
-    Set<Id> contactIds = new Set<Id>();
-    for (Opportunity opp : opps) {
-      if (opp.ContactId != null) {
-        contactIds.add(opp.ContactId);
-      }
-    }
-    Map<Id, Contact> contactMap = new Map<Id, Contact>(
-      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
+    // 1. Validate opportunities and filter out those that should be skipped
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      detailedResult
     );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
 
-    // Process each opportunity individually with detailed tracking
-    for (Opportunity opp : opps) {
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-        opp.Id,
-        opp.Name
+    // 2. Prepare emails for valid opportunities
+    EmailPreparationCommand prepCmd = new EmailPreparationCommand(
+      validOpps,
+      config
+    );
+    prepCmd.execute();
+    AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = prepCmd.getOutput();
+
+    // 3. Send prepared emails
+    EmailSendCommand sendCmd = new EmailSendCommand(
+      prepOutput.emails,
+      prepOutput.validOpportunities
+    );
+    sendCmd.execute();
+    AcknowledgementCommandOutputs.SendOutput sendOutput = sendCmd.getOutput();
+
+    // 4. Update database with acknowledgment dates for successful sends
+    if (sendOutput.isSuccess && !sendOutput.successfulOpportunities.isEmpty()) {
+      DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(
+        sendOutput.successfulOpportunities
       );
+      updateCmd.execute();
+      AcknowledgementCommandOutputs.UpdateOutput updateOutput = updateCmd.getOutput();
 
-      // Check if already acknowledged
-      if (opp.npsp__Acknowledgment_Date__c != null) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
-          'Opportunity already acknowledged on ' +
-          opp.npsp__Acknowledgment_Date__c.format()
-        );
-        detailedResult.addOpportunityResult(oppResult);
-        System.debug(
-          LoggingLevel.INFO,
-          'Skipping already acknowledged opportunity: ' + opp.Name
-        );
-        continue;
-      }
-
-      // Check if has contact
-      if (opp.ContactId == null) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_CONTACT,
-          'Opportunity has no associated Contact'
-        );
-        detailedResult.addOpportunityResult(oppResult);
-        System.debug(
-          LoggingLevel.WARN,
-          'Opportunity ' + opp.Id + ' has no ContactId.'
-        );
-        continue;
-      }
-
-      Contact contact = contactMap.get(opp.ContactId);
-      if (contact == null) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_CONTACT,
-          'Contact not found'
-        );
-        detailedResult.addOpportunityResult(oppResult);
-        System.debug(
-          LoggingLevel.WARN,
-          'Contact not found for Opportunity ' + opp.Id
-        );
-        continue;
-      }
-
-      // Check if contact has email
-      if (String.isBlank(contact.Email)) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_EMAIL,
-          'Contact has no email address'
-        );
-        detailedResult.addOpportunityResult(oppResult);
-        System.debug(
-          LoggingLevel.WARN,
-          'Contact ' + contact.Id + ' has no email.'
-        );
-        continue;
-      }
-
-      // Prepare email for sending
-      oppResult.contactEmail = contact.Email;
-      Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
-      config.configureEmail(mail, contact, opp);
-      if (orgWideEmailId != null) {
-        mail.setOrgWideEmailAddressId(orgWideEmailId);
-      }
-
-      emails.add(mail);
-      successfulOpps.add(oppResult);
-
-      if (config.useTemplate) {
-        System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
-      }
-    }
-
-    // Send emails if any are prepared
-    if (!emails.isEmpty()) {
-      try {
-        Messaging.sendEmail(emails);
-
-        // Mark all prepared opportunities as successful and update acknowledgment dates
-        Date today = Date.today();
-        List<Opportunity> oppsToUpdate = new List<Opportunity>();
-
-        for (
-          DonationAcknowledgementService.OpportunityResult oppResult : successfulOpps
-        ) {
-          oppResult.setStatus(
-            DonationAcknowledgementService.AckStatus.SUCCESS,
-            'Email sent successfully'
-          );
-          oppResult.acknowledgmentDate = today;
-          detailedResult.addOpportunityResult(oppResult);
-
-          oppsToUpdate.add(
-            new Opportunity(
-              Id = oppResult.opportunityId,
-              npsp__Acknowledgment_Date__c = today
-            )
-          );
-        }
-
-        if (!oppsToUpdate.isEmpty()) {
-          update oppsToUpdate;
-        }
-      } catch (EmailException ee) {
-        System.debug(
-          LoggingLevel.ERROR,
-          'Email sending failed: ' + ee.getMessage()
-        );
-
-        // Mark all prepared opportunities as failed
-        for (
-          DonationAcknowledgementService.OpportunityResult oppResult : successfulOpps
-        ) {
-          oppResult.setStatus(
-            DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-            'Email sending failed: ' + ee.getMessage()
-          );
-          detailedResult.addOpportunityResult(oppResult);
-        }
-
-        throw new AuraHandledException(
-          'Failed to send acknowledgement emails: ' + ee.getMessage()
-        );
-      } catch (DmlException de) {
-        System.debug(
-          LoggingLevel.ERROR,
-          'Database update failed: ' + de.getMessage()
-        );
-
-        // Mark all prepared opportunities as failed
-        for (
-          DonationAcknowledgementService.OpportunityResult oppResult : successfulOpps
-        ) {
-          oppResult.setStatus(
-            DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-            'Database update failed: ' + de.getMessage()
-          );
-          detailedResult.addOpportunityResult(oppResult);
-        }
-
-        throw new AuraHandledException(
-          'Failed to update acknowledgement dates: ' + de.getMessage()
-        );
-      } catch (Exception e) {
-        System.debug(
-          LoggingLevel.ERROR,
-          'Unexpected error during email processing: ' + e.getMessage()
-        );
-
-        // Mark all prepared opportunities as failed
-        for (
-          DonationAcknowledgementService.OpportunityResult oppResult : successfulOpps
-        ) {
-          oppResult.setStatus(
-            DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-            'Unexpected error: ' + e.getMessage()
-          );
-          detailedResult.addOpportunityResult(oppResult);
-        }
-
-        throw new AuraHandledException(
-          'Failed to send acknowledgement emails: ' + e.getMessage()
-        );
-      }
+      // 5. Aggregate all results into final DetailedAckResult
+      ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
+        detailedResult,
+        prepOutput,
+        sendOutput,
+        updateOutput,
+        config.emailType
+      );
+      aggregationCmd.execute();
+    } else {
+      // Handle failed sends - still need to aggregate results
+      ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
+        detailedResult,
+        prepOutput,
+        sendOutput,
+        null,
+        config.emailType
+      );
+      aggregationCmd.execute();
     }
 
     return detailedResult;
