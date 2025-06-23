@@ -50,3 +50,5 @@ Requirements when preparing and iterating on a plan:
 - Use numbers to label each deliverable (e.g., 1, 2, 3, etc)
 - When we make changes to a plan, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
 - Use the format "Phase A: [description of phase]" and "Deliverable 1: [description of deliverable]" to clearly outline the plan.
+
+When making code changes, provide a brief description of the changes you will make before making them
