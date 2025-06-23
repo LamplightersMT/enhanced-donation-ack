@@ -287,4 +287,51 @@ public class AcknowledgementTestUtils {
       );
     }
   }
+
+  // ===== MOCK EMAIL RESULT UTILITIES =====
+
+  /**
+   * Create a mock successful Messaging.SendEmailResult
+   */
+  public static Messaging.SendEmailResult createSuccessfulSendEmailResult() {
+    // In Apex, Messaging.SendEmailResult cannot be directly instantiated.
+    // In test context, we can use a real result from a successful sendEmail call with an empty list.
+    List<Messaging.SendEmailResult> results = Messaging.sendEmail(
+      new List<Messaging.SingleEmailMessage>()
+    );
+    return results.isEmpty() ? null : results[0];
+  }
+
+  /**
+   * Create a mock failed Messaging.SendEmailResult with a given error message
+   */
+  public static Messaging.SendEmailResult createFailedSendEmailResult(
+    String errorMessage
+  ) {
+    // In Apex, we cannot directly instantiate SendEmailResult or its error objects.
+    // For negative test cases, we can simulate by returning null or by throwing an exception in the mock service.
+    // Here, we return null to indicate failure, and the mock service can throw if needed.
+    return null;
+  }
+
+  /**
+   * Create a list of mixed success/failure SendEmailResults
+   * @param successCount Number of successful results
+   * @param failureCount Number of failed results
+   * @param errorMessage Error message for failed results
+   */
+  public static List<Messaging.SendEmailResult> createMixedSendEmailResults(
+    Integer successCount,
+    Integer failureCount,
+    String errorMessage
+  ) {
+    List<Messaging.SendEmailResult> results = new List<Messaging.SendEmailResult>();
+    for (Integer i = 0; i < successCount; i++) {
+      results.add(createSuccessfulSendEmailResult());
+    }
+    for (Integer i = 0; i < failureCount; i++) {
+      results.add(createFailedSendEmailResult(errorMessage));
+    }
+    return results;
+  }
 }
