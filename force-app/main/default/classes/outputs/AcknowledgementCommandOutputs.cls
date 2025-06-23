@@ -50,6 +50,18 @@ public with sharing class AcknowledgementCommandOutputs {
       this.failedOpportunities = failedOpps;
       return this;
     }
+
+    public SendOutput setPartialFailure(
+      String errorMessage,
+      List<DonationAcknowledgementService.OpportunityResult> successfulOpps,
+      List<DonationAcknowledgementService.OpportunityResult> failedOpps
+    ) {
+      this.isSuccess = false;
+      this.errorMessage = errorMessage;
+      this.successfulOpportunities = successfulOpps;
+      this.failedOpportunities = failedOpps;
+      return this;
+    }
   }
 
   /**

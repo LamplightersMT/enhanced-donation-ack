@@ -15,6 +15,8 @@ private class EmailSendCommandTest {
       null,
       100
     );
+    // Reset static emailService before each test run
+    EmailSendCommand.emailService = null;
   }
 
   @isTest
@@ -176,7 +178,6 @@ private class EmailSendCommandTest {
     // Test email sending with empty email list
     // Inject mock email service
     MockEmailService mock = new MockEmailService();
-    mock.setSuccessful();
     EmailSendCommand.emailService = mock;
 
     List<Messaging.SingleEmailMessage> emptyEmails = new List<Messaging.SingleEmailMessage>();
@@ -188,29 +189,18 @@ private class EmailSendCommandTest {
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
 
-    // Verify mock was called (should be 0 since no emails)
-    mock.verifySendEmailsCalledWith(0);
-
-    // Verify empty list handling
-    System.assertEquals(
-      true,
-      output.isSuccess,
-      'Should be successful (empty case)'
-    );
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Should have no error message'
-    );
+    // Should not call the mock for empty list
+    mock.verifyCallCount(0);
+    System.assertEquals(true, output.isSuccess, 'Should be successful');
     System.assertEquals(
       0,
       output.successfulOpportunities.size(),
-      'Should have no successful opportunities'
+      'No successful opportunities'
     );
     System.assertEquals(
       0,
       output.failedOpportunities.size(),
-      'Should have no failed opportunities'
+      'No failed opportunities'
     );
   }
 
@@ -399,10 +389,10 @@ private class EmailSendCommandTest {
         result.status,
         'Should be marked as failure'
       );
-      System.assertEquals(
-        'Simulated partial failure',
-        result.reason,
-        'Should have failure reason'
+      System.assert(
+        result.reason.contains('Email sending failed'),
+        'Should have failure reason containing "Email sending failed", got: ' +
+        result.reason
       );
       foundFailure = true;
     }

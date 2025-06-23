@@ -294,46 +294,90 @@ public class AcknowledgementTestUtils {
    * Create a mock successful Messaging.SendEmailResult
    */
   public static Messaging.SendEmailResult createSuccessfulSendEmailResult() {
-    // In Apex, Messaging.SendEmailResult cannot be directly instantiated.
-    // In test context, we can use a real result from a successful sendEmail call with an empty list.
-    List<Messaging.SendEmailResult> results = Messaging.sendEmail(
-      new List<Messaging.SingleEmailMessage>()
-    );
-    return results.isEmpty() ? null : results[0];
+    // In test context, create a minimal but valid email to get a real result
+    try {
+      Messaging.SingleEmailMessage testEmail = new Messaging.SingleEmailMessage();
+      testEmail.setToAddresses(new List<String>{ 'success@test.com' });
+      testEmail.setSubject('Test Success');
+      testEmail.setPlainTextBody('Test success email');
+      testEmail.setSaveAsActivity(false);
+
+      List<Messaging.SendEmailResult> results = Messaging.sendEmail(
+        new List<Messaging.SingleEmailMessage>{ testEmail },
+        false // Don't throw exception on failure
+      );
+
+      // Return the first result if available and successful
+      if (!results.isEmpty() && results[0].isSuccess()) {
+        return results[0];
+      }
+
+      // If that didn't work, just send to a simpler address
+      testEmail = new Messaging.SingleEmailMessage();
+      testEmail.setToAddresses(new List<String>{ 'test@example.org' });
+      testEmail.setSubject('Success');
+      testEmail.setPlainTextBody('Success');
+      testEmail.setSaveAsActivity(false);
+
+      results = Messaging.sendEmail(
+        new List<Messaging.SingleEmailMessage>{ testEmail },
+        false
+      );
+
+      return results.isEmpty() ? null : results[0];
+    } catch (Exception e) {
+      System.debug('Error creating successful result: ' + e.getMessage());
+      // In case of any error, return null and let the caller handle it
+      return null;
+    }
   }
 
   /**
    * Create a mock failed Messaging.SendEmailResult with a given error message
-   * Attempts to create a real failed result by sending an invalid email in test context.
-   * If not possible, returns a successful result (tests must check isSuccess appropriately).
+   * Uses a real email attempt that should fail in test context.
    */
   public static Messaging.SendEmailResult createFailedSendEmailResult(
     String errorMessage
   ) {
     try {
-      // Attempt to send an email to an invalid address to get a failed result
+      // Attempt to send an email that will definitely fail
       Messaging.SingleEmailMessage failEmail = new Messaging.SingleEmailMessage();
-      failEmail.setSubject('Mock Failure Test');
-      failEmail.setPlainTextBody('This should fail');
-      failEmail.setToAddresses(new List<String>{ 'invalid@invalid.invalid' });
+      failEmail.setSubject('Test Failure');
+      failEmail.setPlainTextBody(errorMessage);
+      failEmail.setToAddresses(
+        new List<String>{
+          'absolutely.invalid@nowhere.domain.invalid.test.failure'
+        }
+      );
       failEmail.setSaveAsActivity(false);
+
       List<Messaging.SendEmailResult> results = Messaging.sendEmail(
         new List<Messaging.SingleEmailMessage>{ failEmail },
         false // Don't throw exception on failure
       );
-      if (!results.isEmpty() && !results[0].isSuccess()) {
+
+      if (!results.isEmpty()) {
         return results[0];
       }
-    } catch (Exception e) {
-      System.debug(
-        'Cannot create actual failed result in test context: ' + e.getMessage()
+
+      // Try an even more invalid email address
+      failEmail = new Messaging.SingleEmailMessage();
+      failEmail.setSubject('Failure');
+      failEmail.setPlainTextBody('Failure');
+      failEmail.setToAddresses(new List<String>{ 'invalid.email.address' });
+      failEmail.setSaveAsActivity(false);
+
+      results = Messaging.sendEmail(
+        new List<Messaging.SingleEmailMessage>{ failEmail },
+        false
       );
+
+      return results.isEmpty() ? null : results[0];
+    } catch (Exception e) {
+      System.debug('Cannot create failed result: ' + e.getMessage());
+      // Fallback: return null if we can't create a failed result
+      return null;
     }
-    // Fallback: return a successful result (tests must check isSuccess appropriately)
-    System.debug(
-      'Warning: createFailedSendEmailResult returning successful result due to test limitations'
-    );
-    return createSuccessfulSendEmailResult();
   }
 
   /**

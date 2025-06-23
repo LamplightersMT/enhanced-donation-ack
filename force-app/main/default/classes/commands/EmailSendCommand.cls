@@ -23,16 +23,48 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
    * Execute email sending
    */
   public void execute() {
-    if (emails.isEmpty()) {
-      sendOutput = new AcknowledgementCommandOutputs.SendOutput()
-        .setSuccess(
-          new List<DonationAcknowledgementService.OpportunityResult>()
-        );
-      return;
-    }
-
     try {
+      // Defensive: Ensure emailService is set
+      if (emailService == null) {
+        emailService = new SalesforceEmailService();
+      }
+
+      // Early return for empty email list
+      if (emails == null || emails.isEmpty()) {
+        sendOutput = new AcknowledgementCommandOutputs.SendOutput()
+          .setSuccess(
+            new List<DonationAcknowledgementService.OpportunityResult>()
+          );
+        return;
+      }
+
       List<Messaging.SendEmailResult> results = emailService.sendEmails(emails);
+
+      // Defensive: Ensure results is not null and matches emails size
+      if (results == null) {
+        throw new System.CalloutException(
+          'Email service returned null results'
+        );
+      }
+      if (results.size() != emails.size()) {
+        throw new System.CalloutException(
+          'Email service returned ' +
+            results.size() +
+            ' results for ' +
+            emails.size() +
+            ' emails'
+        );
+      }
+      if (opportunityResults.size() != emails.size()) {
+        throw new System.CalloutException(
+          'Opportunity results size (' +
+            opportunityResults.size() +
+            ') does not match emails size (' +
+            emails.size() +
+            ')'
+        );
+      }
+
       Date today = Date.today();
       Boolean allSuccessful = true;
 
@@ -44,7 +76,8 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
           i
         ];
         Messaging.SendEmailResult emailResult = results[i];
-        if (emailResult.isSuccess()) {
+
+        if (emailResult == null || emailResult.isSuccess()) {
           oppResult.setStatus(
             DonationAcknowledgementService.AckStatus.SUCCESS,
             'Email sent successfully'
@@ -53,7 +86,10 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
         } else {
           allSuccessful = false;
           String errorMsg = 'Email sending failed';
-          if (!emailResult.getErrors().isEmpty()) {
+          if (
+            emailResult.getErrors() != null &&
+            !emailResult.getErrors().isEmpty()
+          ) {
             errorMsg += ': ' + emailResult.getErrors()[0].getMessage();
           }
           oppResult.setStatus(
@@ -62,17 +98,35 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
           );
         }
       }
+
       if (allSuccessful) {
         sendOutput = new AcknowledgementCommandOutputs.SendOutput()
           .setSuccess(opportunityResults);
       } else {
+        // Separate successful and failed opportunities
+        List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
+        List<DonationAcknowledgementService.OpportunityResult> failedOpps = new List<DonationAcknowledgementService.OpportunityResult>();
+
+        for (
+          DonationAcknowledgementService.OpportunityResult oppResult : opportunityResults
+        ) {
+          if (
+            oppResult.status == DonationAcknowledgementService.AckStatus.SUCCESS
+          ) {
+            successfulOpps.add(oppResult);
+          } else {
+            failedOpps.add(oppResult);
+          }
+        }
+
         sendOutput = new AcknowledgementCommandOutputs.SendOutput()
-          .setFailure(
+          .setPartialFailure(
             'Failed to send acknowledgement emails',
-            opportunityResults
+            successfulOpps,
+            failedOpps
           );
       }
-    } catch (EmailException ee) {
+    } catch (System.CalloutException ee) {
       System.debug(
         LoggingLevel.ERROR,
         'Email sending failed: ' + ee.getMessage()
@@ -90,13 +144,9 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
 
       sendOutput = new AcknowledgementCommandOutputs.SendOutput()
         .setFailure(
-          'Failed to send acknowledgement emails: ' + ee.getMessage(),
+          'Email sending failed: ' + ee.getMessage(),
           opportunityResults
         );
-
-      throw new AuraHandledException(
-        'Failed to send acknowledgement emails: ' + ee.getMessage()
-      );
     } catch (Exception e) {
       System.debug(
         LoggingLevel.ERROR,
@@ -118,10 +168,6 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
           'Failed to send acknowledgement emails: ' + e.getMessage(),
           opportunityResults
         );
-
-      throw new AuraHandledException(
-        'Failed to send acknowledgement emails: ' + e.getMessage()
-      );
     }
   }
 

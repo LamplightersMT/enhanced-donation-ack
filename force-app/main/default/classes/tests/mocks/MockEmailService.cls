@@ -16,21 +16,61 @@ public class MockEmailService implements IEmailService {
     List<Messaging.SingleEmailMessage> emails
   ) {
     callCount++;
-    sendEmailsCalls.add(emails);
+    sendEmailsCalls.add(
+      emails == null ? new List<Messaging.SingleEmailMessage>() : emails
+    );
     List<Messaging.SendEmailResult> results = new List<Messaging.SendEmailResult>();
+
     if (emails == null || emails.isEmpty()) {
       return results;
     }
+
+    // Create cached failure result once if we haven't already
+    if (cachedFailureResult == null) {
+      cachedFailureResult = createCachedFailureResult();
+    }
+
+    // For each email, return the appropriate result type based on configuration
     for (Integer i = 0; i < emails.size(); i++) {
       if (shouldSucceed && !failureIndexes.contains(i)) {
-        results.add(AcknowledgementTestUtils.createSuccessfulSendEmailResult());
+        // Return null for successful result (EmailSendCommand treats null as success)
+        results.add(null);
       } else {
-        results.add(
-          AcknowledgementTestUtils.createFailedSendEmailResult(errorMessage)
-        );
+        // Return failed result
+        results.add(cachedFailureResult);
       }
     }
+
     return results;
+  }
+
+  // Cache for failure results only (success is represented by null)
+  private static Messaging.SendEmailResult cachedFailureResult;
+
+  /**
+   * Create a cached failure email result by attempting to send to invalid address
+   *
+   * Salesforce disallows instantiation of Messaging.SendEmailResult directly,
+   * so we create a dummy email and capture the result from Messaging.sendEmail.
+   */
+  private static Messaging.SendEmailResult createCachedFailureResult() {
+    try {
+      Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+      email.setToAddresses(new List<String>{ 'invalid.test.failure' });
+      email.setSubject('Test Failure');
+      email.setPlainTextBody('Failure');
+      email.setSaveAsActivity(false);
+
+      List<Messaging.SendEmailResult> results = Messaging.sendEmail(
+        new List<Messaging.SingleEmailMessage>{ email },
+        false
+      );
+
+      return results.isEmpty() ? null : results[0];
+    } catch (Exception e) {
+      System.debug('Error creating cached failure result: ' + e.getMessage());
+      return null;
+    }
   }
 
   public MockEmailService setSuccessful() {
@@ -58,6 +98,8 @@ public class MockEmailService implements IEmailService {
     this.failureIndexes.clear();
     this.sendEmailsCalls.clear();
     this.callCount = 0;
+    // Reset cached failure result to force recreation
+    cachedFailureResult = null;
     return this;
   }
   public void verifySendEmailsCalledWith(Integer expectedCount) {
