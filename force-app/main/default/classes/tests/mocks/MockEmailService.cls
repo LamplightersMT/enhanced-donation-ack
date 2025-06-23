@@ -66,6 +66,10 @@ public class MockEmailService implements IEmailService {
       callCount,
       'sendEmails should have been called exactly once'
     );
+    System.assert(
+      !sendEmailsCalls.isEmpty(),
+      'sendEmailsCalls should not be empty when verifying call arguments'
+    );
     System.assertEquals(
       expectedCount,
       sendEmailsCalls[0].size(),

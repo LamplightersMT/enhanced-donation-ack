@@ -22,6 +22,11 @@ private class EmailSendCommandTest {
     // Test successful email sending with single email
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+
     // Create prepared email message
     Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
     email.setSubject('Test Subject');
@@ -47,6 +52,9 @@ private class EmailSendCommandTest {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(1);
 
     // Verify successful send output
     System.assertEquals(true, output.isSuccess, 'Should be successful');
@@ -90,6 +98,11 @@ private class EmailSendCommandTest {
     // Test successful email sending with multiple emails
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>();
 
@@ -114,6 +127,9 @@ private class EmailSendCommandTest {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(3);
 
     // Verify successful send output for all emails
     System.assertEquals(true, output.isSuccess, 'Should be successful');
@@ -158,6 +174,11 @@ private class EmailSendCommandTest {
   @isTest
   static void testSendEmailsEmptyList() {
     // Test email sending with empty email list
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+
     List<Messaging.SingleEmailMessage> emptyEmails = new List<Messaging.SingleEmailMessage>();
     List<DonationAcknowledgementService.OpportunityResult> emptyResults = new List<DonationAcknowledgementService.OpportunityResult>();
 
@@ -166,6 +187,9 @@ private class EmailSendCommandTest {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called (should be 0 since no emails)
+    mock.verifySendEmailsCalledWith(0);
 
     // Verify empty list handling
     System.assertEquals(
@@ -196,6 +220,11 @@ private class EmailSendCommandTest {
     Contact c = [SELECT Id FROM Contact LIMIT 1];
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
 
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+
     // Create template-based email message
     Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
     email.setTemplateId('00X000000000000AAA'); // Mock template ID
@@ -217,39 +246,31 @@ private class EmailSendCommandTest {
     };
 
     Test.startTest();
-    try {
-      EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
-      sendCmd.execute();
-      AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
-
-      // In successful case
-      System.assertEquals(true, output.isSuccess, 'Should be successful');
-      System.assertEquals(
-        1,
-        output.successfulOpportunities.size(),
-        'Should have 1 successful opportunity'
-      );
-    } catch (Exception e) {
-      // In test context, template-based emails may fail due to invalid template ID
-      // This is expected behavior - verify proper error handling
-      System.assert(
-        e.getMessage().contains('Failed to send acknowledgement emails') ||
-          e.getMessage().contains('Data Not Available') ||
-          e.getMessage().contains('Invalid parameter value') ||
-          e.getMessage().contains('Script-thrown exception'),
-        'Should get expected email sending error: ' + e.getMessage()
-      );
-    }
+    EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
+    sendCmd.execute();
+    AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(1);
+
+    // In successful case
+    System.assertEquals(true, output.isSuccess, 'Should be successful');
+    System.assertEquals(
+      1,
+      output.successfulOpportunities.size(),
+      'Should have 1 successful opportunity'
+    );
   }
 
   @isTest
   static void testEmailSendingErrorHandling() {
     // Test error handling during email sending
-    // Note: In test context, it's difficult to force Messaging.sendEmail() to fail
-    // This test verifies the command structure handles errors properly
-
+    // Configure mock to simulate failure
     Contact c = [SELECT Id FROM Contact LIMIT 1];
+    MockEmailService mock = new MockEmailService();
+    mock.setFailure('Simulated failure');
+    EmailSendCommand.emailService = mock;
 
     // Create email with potentially problematic configuration
     Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
@@ -272,31 +293,132 @@ private class EmailSendCommandTest {
     };
 
     Test.startTest();
-    try {
-      EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
-      sendCmd.execute();
-      AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
-
-      // If execution succeeds (normal in test context)
-      System.assertEquals(
-        true,
-        output.isSuccess,
-        'Should be successful in test context'
-      );
-    } catch (AuraHandledException e) {
-      // If an error occurs, verify proper error handling
-      System.assert(
-        e.getMessage().contains('Failed to send acknowledgement emails'),
-        'Should have proper error message format'
-      );
-    }
+    EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
+    sendCmd.execute();
+    AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(1);
+
+    // Should be failure
+    System.assertEquals(
+      false,
+      output.isSuccess,
+      'Should be unsuccessful when mock fails'
+    );
+    System.assertNotEquals(
+      null,
+      output.errorMessage,
+      'Should have error message on failure'
+    );
+    System.assertEquals(
+      0,
+      output.successfulOpportunities.size(),
+      'Should have no successful opportunities on failure'
+    );
+    System.assertEquals(
+      1,
+      output.failedOpportunities.size(),
+      'Should have 1 failed opportunity on failure'
+    );
+  }
+
+  @isTest
+  static void testEmailSendingPartialFailure() {
+    // Test partial failure scenario
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    // Inject mock email service and configure partial failure
+    MockEmailService mock = new MockEmailService();
+    mock.setPartialFailure(new List<Integer>{ 1 }, 'Simulated partial failure');
+    EmailSendCommand.emailService = mock;
+
+    // Create two emails and opportunity results
+    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
+    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>();
+    for (Integer i = 1; i <= 2; i++) {
+      Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+      email.setSubject('Partial ' + i);
+      email.setPlainTextBody('Partial Body ' + i);
+      email.setTargetObjectId(c.Id);
+      emails.add(email);
+      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+        '00600000000000' + i + 'AAA',
+        'Partial Opportunity ' + i
+      );
+      oppResult.contactEmail = 'testuser@example.com';
+      oppResults.add(oppResult);
+    }
+
+    Test.startTest();
+    EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
+    sendCmd.execute();
+    AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
+    Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(2);
+
+    // Should be partial success
+    System.assertEquals(false, output.isSuccess, 'Should be failure (partial)');
+    System.assertEquals(
+      1,
+      output.successfulOpportunities.size(),
+      'Should have 1 successful opportunity'
+    );
+    System.assertEquals(
+      1,
+      output.failedOpportunities.size(),
+      'Should have 1 failed opportunity'
+    );
+
+    // Verify which opportunity failed and which succeeded
+    Boolean foundSuccess = false;
+    Boolean foundFailure = false;
+    for (
+      DonationAcknowledgementService.OpportunityResult result : output.successfulOpportunities
+    ) {
+      System.assertEquals(
+        DonationAcknowledgementService.AckStatus.SUCCESS,
+        result.status,
+        'Should be marked as successful'
+      );
+      System.assertEquals(
+        'Email sent successfully',
+        result.reason,
+        'Should have success reason'
+      );
+      foundSuccess = true;
+    }
+    for (
+      DonationAcknowledgementService.OpportunityResult result : output.failedOpportunities
+    ) {
+      System.assertEquals(
+        DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+        result.status,
+        'Should be marked as failure'
+      );
+      System.assertEquals(
+        'Simulated partial failure',
+        result.reason,
+        'Should have failure reason'
+      );
+      foundFailure = true;
+    }
+    System.assertEquals(true, foundSuccess, 'Should find a successful result');
+    System.assertEquals(true, foundFailure, 'Should find a failed result');
   }
 
   @isTest
   static void testOpportunityResultStatusUpdates() {
     // Test that opportunity results are properly updated with status information
     Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
 
     // Create email and opportunity result
     Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
@@ -332,6 +454,9 @@ private class EmailSendCommandTest {
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
 
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(1);
+
     // Verify opportunity result was updated
     DonationAcknowledgementService.OpportunityResult updatedResult = output.successfulOpportunities[0];
 
@@ -364,6 +489,11 @@ private class EmailSendCommandTest {
   static void testEmailSendCommandWithDifferentEmailTypes() {
     // Test email send command with different types of email configurations
     Contact c = [SELECT Id FROM Contact LIMIT 1];
+
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
 
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
     List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>();
@@ -401,6 +531,9 @@ private class EmailSendCommandTest {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(2);
 
     // Verify both emails were sent successfully
     System.assertEquals(true, output.isSuccess, 'Should be successful');
@@ -442,6 +575,11 @@ private class EmailSendCommandTest {
     // Test the structure and properties of the SendOutput class
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
+    // Inject mock email service
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+
     // Create single email for testing
     Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
     email.setSubject('Output Test Subject');
@@ -466,6 +604,9 @@ private class EmailSendCommandTest {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
     Test.stopTest();
+
+    // Verify mock was called
+    mock.verifySendEmailsCalledWith(1);
 
     // Verify output structure
     System.assertNotEquals(null, output, 'Output should not be null');
