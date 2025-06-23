@@ -19,6 +19,24 @@ private class DonationAcknowledgementServiceImplTest {
     insert opp;
   }
 
+  // ===== TEST SETUP HELPERS =====
+
+  /**
+   * Set up MockEmailService for successful email sending in tests
+   */
+  private static void setupMockEmailService() {
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+  }
+
+  /**
+   * Reset MockEmailService static state for clean test isolation
+   */
+  private static void resetMockEmailService() {
+    MockEmailService.reset();
+  }
+
   @isTest
   static void testSendEmailsCoreWithTemplateConfig() {
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
@@ -46,6 +64,7 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testSendEmailsCoreWithStaticConfig() {
+    setupMockEmailService();
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
@@ -65,6 +84,7 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testSendEmailsCoreWithResultReturnsMigratedFunctionality() {
+    setupMockEmailService();
     Map<String, Opportunity> testOpps = AcknowledgementTestUtils.createMixedScenarioOpportunities();
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{

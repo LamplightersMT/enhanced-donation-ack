@@ -23,6 +23,24 @@ private class DonationAcknowledgementServiceTest {
     // (Assume template/folder already deployed in metadata, so just query in test)
   }
 
+  // ===== TEST SETUP HELPERS =====
+
+  /**
+   * Set up MockEmailService for successful email sending in tests
+   */
+  private static void setupMockEmailService() {
+    MockEmailService mock = new MockEmailService();
+    mock.setSuccessful();
+    EmailSendCommand.emailService = mock;
+  }
+
+  /**
+   * Reset MockEmailService static state for clean test isolation
+   */
+  private static void resetMockEmailService() {
+    MockEmailService.reset();
+  }
+
   // ===== HELPER METHODS - NOW USING SHARED UTILS =====
 
   // All helper methods have been moved to AcknowledgementTestUtils
@@ -32,6 +50,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendAcknowledgementsWithTemplate() {
+    setupMockEmailService();
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<DonationAcknowledgementService.OpportunityIdWrapper> input = AcknowledgementTestUtils.createWrapperInput(
       new List<Id>{ opp.Id }
@@ -54,6 +73,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendAcknowledgementsStaticFallback() {
+    setupMockEmailService();
     // Set template devname/folder to values that do not exist to force fallback
     DonationAcknowledgementService.donationAckTemplateDevName = 'DoesNotExistTemplate';
     DonationAcknowledgementService.donationAckTemplateFolder = 'DoesNotExistFolder';
@@ -106,6 +126,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testEmailSendingFailureDoesNotUpdateAcknowledgmentDate() {
+    setupMockEmailService();
     // This test verifies that if email sending fails, acknowledgment dates are not updated
     Opportunity opp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
       [SELECT Id FROM Opportunity LIMIT 1].Id
@@ -155,6 +176,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testDuplicatePreventionSkipsAcknowledgedOpportunities() {
+    setupMockEmailService();
     // Create test data with one already acknowledged opportunity
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
@@ -439,6 +461,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendEmailsCoreDetailedWithSuccessfulOpportunities() {
+    setupMockEmailService();
     // Test the detailed core method with successful opportunities
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
@@ -518,6 +541,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendEmailsCoreDetailedWithMixedScenarios() {
+    setupMockEmailService();
     // Test detailed method with various scenarios
     Map<String, Opportunity> testOpps = AcknowledgementTestUtils.createMixedScenarioOpportunities();
 
@@ -630,6 +654,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendAcknowledgementsDetailedWithTemplate() {
+    setupMockEmailService();
     // Test the new detailed AuraEnabled method with template
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Id> oppIds = new List<Id>{ opp.Id };
@@ -686,6 +711,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendAcknowledgementsDetailedStaticFallback() {
+    setupMockEmailService();
     // Test the detailed method with static content fallback
     DonationAcknowledgementService.donationAckTemplateDevName = 'DoesNotExistTemplate';
     DonationAcknowledgementService.donationAckTemplateFolder = 'DoesNotExistFolder';
@@ -747,6 +773,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testGetOpportunityResults() {
+    setupMockEmailService();
     // Test individual opportunity results method for LWC consumption
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
@@ -804,6 +831,7 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testEnhancedAPIMethodsConsistency() {
+    setupMockEmailService();
     // Test that enhanced methods return consistent data with invocable methods
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Id> oppIds = new List<Id>{ opp.Id };
