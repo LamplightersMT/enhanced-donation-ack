@@ -36,10 +36,17 @@ tail apex logs with `sf apex log tail --debug-level SFDC_DevConsole`
 
 When doing dependency injection, use mutable instance variables instead of constructor injection when possible.
 
-When we are preparing a plan and make changes to it, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
-
 When creating test mocks, always include configuration and verification helper methods (such as setSuccessful, setFailure, setPartialFailure, reset, and verify\* methods) to make tests expressive, maintainable, and robust, following the pattern used in MockEmailService.
 
 Maintain existing whitespace between blocks when editing code to ensure readability and consistency
 
 Maintain existing comments when editing code unless you have changed the functionality of the code. If you change the functionality, update the comment to reflect the new behavior.
+
+Requirements when preparing and iterating on a plan:
+
+- Split the plan into a reasonable number of phases, each with a clear goal.
+- Use letters to label each phase (e.g., Phase A, Phase B, etc.).
+- Split phases into deliverables, each with a clear goal.
+- Use numbers to label each deliverable (e.g., 1, 2, 3, etc)
+- When we make changes to a plan, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
+- Use the format "Phase A: [description of phase]" and "Deliverable 1: [description of deliverable]" to clearly outline the plan.
