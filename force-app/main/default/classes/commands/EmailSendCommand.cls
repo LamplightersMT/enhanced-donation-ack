@@ -9,7 +9,7 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
 
   // Mutable instance variable for dependency injection
   @TestVisible
-  private IEmailService emailService = new EmailService();
+  public IEmailService emailService = new EmailService();
 
   public EmailSendCommand(
     List<Messaging.SingleEmailMessage> emails,

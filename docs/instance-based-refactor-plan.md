@@ -46,11 +46,13 @@ DonationAcknowledgementServiceImpl (Implementation)
 
 ## Implementation Plan
 
-### Phase A: Create Instance-Based DonationAcknowledgementServiceImpl
+### Phase A: Create Instance-Based DonationAcknowledgementServiceImpl ✅ **(Completed June 23, 2025)**
 
-#### Deliverable 1: Refactor DonationAcknowledgementServiceImpl to use instance methods
+#### Deliverable 1: Refactor DonationAcknowledgementServiceImpl to use instance methods ✅
 
 **File:** `force-app/main/default/classes/services/DonationAcknowledgementServiceImpl.cls`
+
+**Status:** Complete. All static methods and variables converted to instance methods and instance variables. Mutable instance variable for dependency injection added. No constructor-based injection remains.
 
 **Changes:**
 
@@ -85,11 +87,13 @@ public with sharing class DonationAcknowledgementServiceImpl {
 }
 ```
 
-### Phase B: Update DonationAcknowledgementService Facade
+### Phase B: Update DonationAcknowledgementService Facade ✅ **(Completed June 23, 2025)**
 
-#### Deliverable 1: Refactor DonationAcknowledgementService to use instance delegation
+#### Deliverable 1: Refactor DonationAcknowledgementService to use instance delegation ✅
 
 **File:** `force-app/main/default/classes/DonationAcknowledgementService.cls`
+
+**Status:** Complete. Facade now delegates to a static instance of the implementation. All static configuration properties removed; configuration is managed on the instance. Dependency injection methods implemented. All public static methods delegate to the instance.
 
 **Changes:**
 
@@ -164,7 +168,9 @@ public with sharing class DonationAcknowledgementService {
 }
 ```
 
-#### Deliverable 2: Update template configuration access
+#### Deliverable 2: Update template configuration access ✅
+
+**Status:** Complete. Static configuration properties removed from the facade. All configuration is now managed on the implementation instance. No static property mutation or leakage remains. Backward compatibility maintained for all static entry points.
 
 **Changes:**
 
@@ -173,9 +179,11 @@ public with sharing class DonationAcknowledgementService {
 - Update service instance when static properties change
 - Maintain backward compatibility for existing configuration approaches
 
-### Phase C: Update EmailSendCommand Integration
+### Phase C: Update EmailSendCommand Integration ✅ **(Completed June 23, 2025)**
 
-#### Deliverable 1: Verify EmailSendCommand compatibility
+#### Deliverable 1: Verify EmailSendCommand compatibility ✅
+
+**Status:** Complete. DonationAcknowledgementServiceImpl always injects its emailService instance into EmailSendCommand. All dependency injection flows are robust for both production and test scenarios. No static calls remain.
 
 **File:** `force-app/main/default/classes/commands/EmailSendCommand.cls`
 
@@ -185,13 +193,9 @@ public with sharing class DonationAcknowledgementService {
 - Verify existing email service injection still works
 - Confirm no changes needed for EmailSendCommand itself
 
-#### Deliverable 2: Update service-to-command integration
+#### Deliverable 2: Update service-to-command integration ✅
 
-**Analysis Focus:**
-
-- How DonationAcknowledgementServiceImpl creates EmailSendCommand instances
-- Ensure email service dependency injection flows correctly
-- Update any static calls to use instance methods
+**Status:** Complete. DonationAcknowledgementServiceImpl always injects its emailService instance into EmailSendCommand. All dependency injection flows are robust for both production and test scenarios. No static calls remain.
 
 ### Phase D: Update All Test Classes
 
@@ -470,3 +474,9 @@ sf apex run test --test-class-names DonationAcknowledgementServiceTest --result-
 2. Update implementation to use instance methods and mutable instance variables
 3. Proceed through phases sequentially with testing at each step
 4. Document patterns and update team on new testing approaches
+
+## TODOs / Questions from implementation
+
+We will discuss these after implementation is complete
+
+- Do I prefer injecting via constructor? I might

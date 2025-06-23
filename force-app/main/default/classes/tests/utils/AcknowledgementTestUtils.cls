@@ -287,4 +287,36 @@ public class AcknowledgementTestUtils {
       );
     }
   }
+
+  // ===== SERVICE INJECTION/CONFIG HELPERS FOR INSTANCE-BASED TESTING =====
+
+  /**
+   * Create a DonationAcknowledgementServiceImpl with test config and a mock email service
+   */
+  public static DonationAcknowledgementServiceImpl createConfiguredServiceWithMockEmail() {
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    service.emailService = new MockEmailService();
+
+    return service;
+  }
+
+  public static void injectServiceWithMockEmail() {
+    injectServiceInstance(createConfiguredServiceWithMockEmail());
+  }
+
+  /**
+   * Inject a service instance into the DonationAcknowledgementService facade
+   */
+  public static void injectServiceInstance(
+    DonationAcknowledgementServiceImpl service
+  ) {
+    DonationAcknowledgementService.setServiceInstance(service);
+  }
+
+  /**
+   * Reset the DonationAcknowledgementService facade to its default instance
+   */
+  public static void resetServiceInstance() {
+    DonationAcknowledgementService.resetServiceInstance();
+  }
 }

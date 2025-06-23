@@ -48,6 +48,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
 - Enhance output from flows to show which Opportunities succeeded/errored
 - Support partial email failures by collecting and examining individual Messaging.SendEmailResult objects for granular error handling
 - Mock out email object so that the org doesn't need email "Access Level: All Email" for tests to pass
+- Remove extraneous tests after rearchitecture / implementing dependency injection
 
 ## Architecture
 
