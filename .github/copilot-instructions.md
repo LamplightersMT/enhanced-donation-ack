@@ -39,3 +39,7 @@ When doing dependency injection, use mutable instance variables instead of const
 When we are preparing a plan and make changes to it, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
 
 When creating test mocks, always include configuration and verification helper methods (such as setSuccessful, setFailure, setPartialFailure, reset, and verify\* methods) to make tests expressive, maintainable, and robust, following the pattern used in MockEmailService.
+
+Maintain existing whitespace between blocks when editing code to ensure readability and consistency
+
+Maintain existing comments when editing code unless you have changed the functionality of the code. If you change the functionality, update the comment to reflect the new behavior.
