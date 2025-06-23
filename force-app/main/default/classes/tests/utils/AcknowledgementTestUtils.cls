@@ -304,14 +304,36 @@ public class AcknowledgementTestUtils {
 
   /**
    * Create a mock failed Messaging.SendEmailResult with a given error message
+   * Attempts to create a real failed result by sending an invalid email in test context.
+   * If not possible, returns a successful result (tests must check isSuccess appropriately).
    */
   public static Messaging.SendEmailResult createFailedSendEmailResult(
     String errorMessage
   ) {
-    // In Apex, we cannot directly instantiate SendEmailResult or its error objects.
-    // For negative test cases, we can simulate by returning null or by throwing an exception in the mock service.
-    // Here, we return null to indicate failure, and the mock service can throw if needed.
-    return null;
+    try {
+      // Attempt to send an email to an invalid address to get a failed result
+      Messaging.SingleEmailMessage failEmail = new Messaging.SingleEmailMessage();
+      failEmail.setSubject('Mock Failure Test');
+      failEmail.setPlainTextBody('This should fail');
+      failEmail.setToAddresses(new List<String>{ 'invalid@invalid.invalid' });
+      failEmail.setSaveAsActivity(false);
+      List<Messaging.SendEmailResult> results = Messaging.sendEmail(
+        new List<Messaging.SingleEmailMessage>{ failEmail },
+        false // Don't throw exception on failure
+      );
+      if (!results.isEmpty() && !results[0].isSuccess()) {
+        return results[0];
+      }
+    } catch (Exception e) {
+      System.debug(
+        'Cannot create actual failed result in test context: ' + e.getMessage()
+      );
+    }
+    // Fallback: return a successful result (tests must check isSuccess appropriately)
+    System.debug(
+      'Warning: createFailedSendEmailResult returning successful result due to test limitations'
+    );
+    return createSuccessfulSendEmailResult();
   }
 
   /**
