@@ -7,6 +7,10 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
   private List<DonationAcknowledgementService.OpportunityResult> opportunityResults;
   private AcknowledgementCommandOutputs.SendOutput sendOutput;
 
+  // Mutable instance variable for dependency injection
+  @TestVisible
+  private IEmailService emailService = new EmailService();
+
   public EmailSendCommand(
     List<Messaging.SingleEmailMessage> emails,
     List<DonationAcknowledgementService.OpportunityResult> opportunityResults
@@ -29,7 +33,7 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
     }
 
     try {
-      Messaging.sendEmail(emails);
+      emailService.sendEmail(emails);
 
       // Mark all prepared opportunities as successful
       Date today = Date.today();
