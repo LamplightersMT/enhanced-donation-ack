@@ -14,6 +14,7 @@
         <members>EmailSendCommand</members>
         <members>EmailSendCommandTest</members>
         <members>IAcknowledgementCommand</members>
+        <members>IEmailService</members>
         <members>OpportunityValidationCommand</members>
         <members>OpportunityValidationCommandTest</members>
         <members>ResultAggregationCommand</members>
@@ -21,6 +22,7 @@
         <members>IOrgWideEmailService</members>
         <members>OrgWideEmailService</members>
         <members>MockOrgWideEmailService</members>
+        <members>SalesforceEmailService</members>
         <name>ApexClass</name>
     </types>
     <types>
