@@ -208,64 +208,6 @@ private class EmailSendCommandTest {
   }
 
   @isTest
-  static void testSendEmailsWithTemplateEmail() {
-    // Test email sending with template-based email
-    MockEmailService mock = new MockEmailService();
-    mock.setSuccessful();
-    Contact c = [SELECT Id FROM Contact LIMIT 1];
-    Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
-
-    // Create template-based email message
-    Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
-    email.setTemplateId('00X000000000000AAA'); // Mock template ID
-    email.setTargetObjectId(c.Id);
-    email.setWhatId(opp.Id);
-
-    // Create opportunity result
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      'Template Test Opp'
-    );
-    oppResult.contactEmail = 'testuser@example.com';
-
-    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>{
-      email
-    };
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>{
-      oppResult
-    };
-
-    Test.startTest();
-    try {
-      EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
-      sendCmd.emailService = mock;
-      sendCmd.execute();
-      AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
-
-      // In successful case
-      System.assertEquals(true, output.isSuccess, 'Should be successful');
-      System.assertEquals(
-        1,
-        output.successfulOpportunities.size(),
-        'Should have 1 successful opportunity'
-      );
-    } catch (Exception e) {
-      // In test context, template-based emails may fail due to invalid template ID
-      // This is expected behavior - verify proper error handling
-      System.assert(
-        e.getMessage().contains('Failed to send acknowledgement emails') ||
-          e.getMessage().contains('Data Not Available') ||
-          e.getMessage().contains('Invalid parameter value') ||
-          e.getMessage().contains('Script-thrown exception'),
-        'Should get expected email sending error: ' + e.getMessage()
-      );
-    }
-    Test.stopTest();
-
-    mock.verifyEmailCount(1);
-  }
-
-  @isTest
   static void testEmailSendingErrorHandling() {
     // Test error handling during email sending
     // Use a mock that simulates failure
@@ -393,88 +335,6 @@ private class EmailSendCommandTest {
   }
 
   @isTest
-  static void testEmailSendCommandWithDifferentEmailTypes() {
-    // Test email send command with different types of email configurations
-    MockEmailService mock = new MockEmailService();
-    mock.setSuccessful();
-    Contact c = [SELECT Id FROM Contact LIMIT 1];
-
-    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>();
-
-    // Email 1: Plain text email
-    Messaging.SingleEmailMessage plainEmail = new Messaging.SingleEmailMessage();
-    plainEmail.setSubject('Plain Text Subject');
-    plainEmail.setPlainTextBody('Plain text body content');
-    plainEmail.setTargetObjectId(c.Id);
-    emails.add(plainEmail);
-
-    DonationAcknowledgementService.OpportunityResult plainResult = new DonationAcknowledgementService.OpportunityResult(
-      '006000000000004AAA',
-      'Plain Text Opportunity'
-    );
-    plainResult.contactEmail = 'testuser@example.com';
-    oppResults.add(plainResult);
-
-    // Email 2: HTML email
-    Messaging.SingleEmailMessage htmlEmail = new Messaging.SingleEmailMessage();
-    htmlEmail.setSubject('HTML Subject');
-    htmlEmail.setHtmlBody('<html><body><h1>HTML Content</h1></body></html>');
-    htmlEmail.setTargetObjectId(c.Id);
-    emails.add(htmlEmail);
-
-    DonationAcknowledgementService.OpportunityResult htmlResult = new DonationAcknowledgementService.OpportunityResult(
-      '006000000000005AAA',
-      'HTML Opportunity'
-    );
-    htmlResult.contactEmail = 'testuser@example.com';
-    oppResults.add(htmlResult);
-
-    Test.startTest();
-    EmailSendCommand sendCmd = new EmailSendCommand(emails, oppResults);
-    sendCmd.emailService = mock;
-    sendCmd.execute();
-    AcknowledgementCommandOutputs.SendOutput output = sendCmd.getOutput();
-    Test.stopTest();
-
-    // Verify both emails were sent successfully
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      2,
-      output.successfulOpportunities.size(),
-      'Should have 2 successful opportunities'
-    );
-    System.assertEquals(
-      0,
-      output.failedOpportunities.size(),
-      'Should have no failed opportunities'
-    );
-
-    // Verify both opportunity results were updated
-    for (
-      DonationAcknowledgementService.OpportunityResult result : output.successfulOpportunities
-    ) {
-      System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
-        result.status,
-        'Should be marked as successful'
-      );
-      System.assertEquals(
-        'Email sent successfully',
-        result.reason,
-        'Should have success reason'
-      );
-      System.assertEquals(
-        Date.today(),
-        result.acknowledgmentDate,
-        'Should have acknowledgment date set'
-      );
-    }
-
-    mock.verifyEmailCount(2);
-  }
-
-  @isTest
   static void testEmailSendOutputStructure() {
     // Test the structure and properties of the SendOutput class
     MockEmailService mock = new MockEmailService();
@@ -558,4 +418,13 @@ private class EmailSendCommandTest {
 
     mock.verifyEmailCount(1);
   }
+
+  /**
+   * NOTE: This test class was refactored as part of the test responsibility plan.
+   * See docs/test-refactoring-plan.md for details on which methods were moved or removed.
+   */
+
+  // The following test methods were moved to DonationAcknowledgementServiceImplTest as part of the test refactoring plan:
+  // - testSendEmailsWithTemplateEmail
+  // - testEmailSendCommandWithDifferentEmailTypes
 }

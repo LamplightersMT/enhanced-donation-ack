@@ -1,3 +1,8 @@
+/**
+ * NOTE: This test class is now focused on facade behavior and public API contract testing only.
+ * Detailed workflow and integration logic is now covered in DonationAcknowledgementServiceImplTest per docs/test-refactoring-plan.md.
+ */
+
 @isTest
 private class DonationAcknowledgementServiceTest {
   @testSetup
@@ -536,86 +541,62 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendEmailsCoreDetailedWithMixedScenarios() {
-    // Test detailed method with various scenarios
-    Map<String, Opportunity> testOpps = AcknowledgementTestUtils.createMixedScenarioOpportunities();
-
+    // Inline creation of test opportunities for each scenario
+    String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
+    Contact validContact = AcknowledgementTestUtils.createTestContact(
+      'testuser_' + unique + '@example.com'
+    );
+    Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
+    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Success Opp',
+      validContact,
+      null,
+      100
+    );
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Already Acknowledged Opp',
+      validContact,
+      Date.today().addDays(-1),
+      200
+    );
+    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'No Contact Opp',
+      null,
+      null,
+      150
+    );
+    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'No Email Opp',
+      noEmailContact,
+      null,
+      75
+    );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
-        testOpps.get('success').Id,
-        testOpps.get('acknowledged').Id,
-        testOpps.get('noContact').Id,
-        testOpps.get('noEmail').Id
+        successOpp.Id,
+        acknowledgedOpp.Id,
+        noContactOpp.Id,
+        noEmailOpp.Id
       }
     );
-
     DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
       'Test Subject',
       'Test Body'
     );
-
+    // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
-
     Test.startTest();
     DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
       opps,
       config
     );
     Test.stopTest();
-
-    // Verify aggregated counts
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
-
-    // Verify individual results by status
     List<DonationAcknowledgementService.OpportunityResult> successfulResults = result.getSuccessfulResults();
     System.assertEquals(
       1,
       successfulResults.size(),
-      'Should have 1 successful result'
-    );
-    System.assertEquals(
-      'Success Opp',
-      successfulResults[0].opportunityName,
-      'Should be the success opportunity'
-    );
-    System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      successfulResults[0].status
-    );
-
-    List<DonationAcknowledgementService.OpportunityResult> skippedResults = result.getSkippedResults();
-    System.assertEquals(
-      3,
-      skippedResults.size(),
-      'Should have 3 skipped results'
-    );
-
-    // Find and verify specific skipped results using helper
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
-      result.opportunityResults
-    );
-
-    // Verify already acknowledged opportunity
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'Already Acknowledged Opp',
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
-      'already acknowledged'
-    );
-
-    // Verify no contact opportunity
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'No Contact Opp',
-      DonationAcknowledgementService.AckStatus.NO_CONTACT,
-      'Opportunity has no associated Contact'
-    );
-
-    // Verify no email opportunity
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'No Email Opp',
-      DonationAcknowledgementService.AckStatus.NO_EMAIL,
-      'Contact has no email address'
+      'Should have one successful result'
     );
   }
 

@@ -282,73 +282,6 @@ private class DatabaseUpdateCommandTest {
   }
 
   @isTest
-  static void testUpdateDatabaseBulkProcessing() {
-    // Test database update with moderate bulk processing (reduced for test limits)
-    Contact c = [SELECT Id FROM Contact LIMIT 1];
-
-    List<Id> oppIds = new List<Id>();
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
-
-    // Create fewer opportunities for test context (avoiding SOQL limits)
-    Integer numOpps = 5; // Reduced from 10 to avoid test limits
-    for (Integer i = 1; i <= numOpps; i++) {
-      Opportunity opp = AcknowledgementTestUtils.createTestOpportunity(
-        'Bulk Opp ' + i,
-        c,
-        null,
-        100 + i
-      );
-      oppIds.add(opp.Id);
-
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-        opp.Id,
-        'Bulk Opp ' + i
-      );
-      oppResult.acknowledgmentDate = Date.today();
-      successfulOpps.add(oppResult);
-    }
-
-    Test.startTest();
-    DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(successfulOpps);
-    updateCmd.execute();
-    AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
-    Test.stopTest();
-
-    // Verify bulk update was successful
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Should have no error message'
-    );
-    System.assertEquals(
-      numOpps,
-      output.recordsUpdated,
-      'Should have updated all records'
-    );
-
-    // Verify all opportunities were updated
-    List<Opportunity> updatedOpps = [
-      SELECT Id, npsp__Acknowledgment_Date__c
-      FROM Opportunity
-      WHERE Id IN :oppIds
-    ];
-
-    System.assertEquals(
-      numOpps,
-      updatedOpps.size(),
-      'Should have all updated opportunities'
-    );
-    for (Opportunity updatedOpp : updatedOpps) {
-      System.assertEquals(
-        Date.today(),
-        updatedOpp.npsp__Acknowledgment_Date__c,
-        'All acknowledgment dates should be set'
-      );
-    }
-  }
-
-  @isTest
   static void testUpdateDatabaseOpportunityResultModification() {
     // Test that opportunity results are properly modified on database errors
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
@@ -490,64 +423,12 @@ private class DatabaseUpdateCommandTest {
     );
   }
 
-  @isTest
-  static void testUpdateDatabaseTransactionBehavior() {
-    // Test that database updates are handled in a single transaction
-    Contact c = [SELECT Id FROM Contact LIMIT 1];
+  /**
+   * NOTE: This test class was refactored as part of the test responsibility plan.
+   * See docs/test-refactoring-plan.md for details on which methods were moved or removed.
+   */
 
-    List<Id> oppIds = new List<Id>();
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
-
-    // Create multiple opportunities
-    for (Integer i = 1; i <= 2; i++) {
-      Opportunity opp = AcknowledgementTestUtils.createTestOpportunity(
-        'Transaction Test Opp ' + i,
-        c,
-        null,
-        100 * i
-      );
-      oppIds.add(opp.Id);
-
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-        opp.Id,
-        'Transaction Test Opp ' + i
-      );
-      oppResult.acknowledgmentDate = Date.today();
-      successfulOpps.add(oppResult);
-    }
-
-    Test.startTest();
-    DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(successfulOpps);
-    updateCmd.execute();
-    AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
-    Test.stopTest();
-
-    // Verify all updates succeeded together
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      2,
-      output.recordsUpdated,
-      'Should have updated both records'
-    );
-
-    // Verify both opportunities were updated
-    List<Opportunity> updatedOpps = [
-      SELECT Id, npsp__Acknowledgment_Date__c
-      FROM Opportunity
-      WHERE Id IN :oppIds
-    ];
-
-    System.assertEquals(
-      2,
-      updatedOpps.size(),
-      'Should have both updated opportunities'
-    );
-    for (Opportunity updatedOpp : updatedOpps) {
-      System.assertEquals(
-        Date.today(),
-        updatedOpp.npsp__Acknowledgment_Date__c,
-        'Both acknowledgment dates should be set'
-      );
-    }
-  }
+  // The following test methods were moved to DonationAcknowledgementServiceImplTest as part of the test refactoring plan:
+  // - testUpdateDatabaseTransactionBehavior
+  // - testUpdateDatabaseBulkProcessing
 }

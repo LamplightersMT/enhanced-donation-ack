@@ -492,117 +492,6 @@ private class ResultAggregationCommandTest {
   }
 
   @isTest
-  static void testAggregateResultsCommandIntegration() {
-    // Test result aggregation as part of complete command flow simulation
-
-    // Create initial DetailedAckResult with validation results
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
-
-    // Simulate validation command results
-    DonationAcknowledgementService.OpportunityResult validationSkipped = new DonationAcknowledgementService.OpportunityResult(
-      '006000000000006AAA',
-      'Validation Skipped Opp'
-    );
-    validationSkipped.setStatus(
-      DonationAcknowledgementService.AckStatus.NO_EMAIL,
-      'Contact has no email'
-    );
-    result.addOpportunityResult(validationSkipped);
-
-    // Simulate email preparation output
-    AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
-
-    Contact testContact = new Contact(
-      Id = [SELECT Id FROM Contact LIMIT 1]
-      .Id,
-      Email = 'testuser@example.com'
-    );
-    prepOutput.contactMap.put(testContact.Id, testContact);
-
-    DonationAcknowledgementService.OpportunityResult preparedOpp = new DonationAcknowledgementService.OpportunityResult(
-      '006000000000007AAA',
-      'Prepared Opportunity'
-    );
-    preparedOpp.contactEmail = 'testuser@example.com';
-    prepOutput.validOpportunities.add(preparedOpp);
-
-    // Simulate email send output
-    AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
-
-    DonationAcknowledgementService.OpportunityResult sentOpp = new DonationAcknowledgementService.OpportunityResult(
-      '006000000000007AAA',
-      'Prepared Opportunity'
-    );
-    sentOpp.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
-    sentOpp.acknowledgmentDate = Date.today();
-
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>{ sentOpp }
-    );
-
-    // Simulate database update output
-    AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(1);
-
-    String emailType = 'Integration Test Template';
-
-    Test.startTest();
-    ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
-      result,
-      prepOutput,
-      sendOutput,
-      updateOutput,
-      emailType
-    );
-    aggregationCmd.execute();
-    Test.stopTest();
-
-    // Verify complete result aggregation
-    System.assertEquals(
-      2,
-      result.opportunityResults.size(),
-      'Should have 2 total opportunity results'
-    );
-    System.assertEquals(
-      emailType,
-      result.emailType,
-      'Should have correct email type'
-    );
-
-    // Verify both validation skipped and successfully sent opportunities are included
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
-      result.opportunityResults
-    );
-
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'Validation Skipped Opp',
-      DonationAcknowledgementService.AckStatus.NO_EMAIL,
-      'Contact has no email'
-    );
-
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'Prepared Opportunity',
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
-
-    // Verify acknowledgment date is set for successful opportunity
-    DonationAcknowledgementService.OpportunityResult successResult = resultsByName.get(
-      'Prepared Opportunity'
-    );
-    System.assertEquals(
-      Date.today(),
-      successResult.acknowledgmentDate,
-      'Should have acknowledgment date'
-    );
-  }
-
-  @isTest
   static void testResultAggregationCommandNoReturnValue() {
     // Test that ResultAggregationCommand modifies the DetailedAckResult directly
     // and doesn't return a value (implements command pattern correctly)
@@ -688,4 +577,11 @@ private class ResultAggregationCommandTest {
       'Should have correct status'
     );
   }
+
+  /**
+   * NOTE: This test class was refactored as part of the test responsibility plan.
+   * See docs/test-refactoring-plan.md for details on which methods were moved or removed.
+   */
+  // The following test method was moved to DonationAcknowledgementServiceImplTest as part of the test refactoring plan:
+  // - testAggregateResultsCommandIntegration
 }
