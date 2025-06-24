@@ -245,23 +245,25 @@ public with sharing class DonationAcknowledgementService {
 
   // Facade delegates to implementation class for business logic
   // Instance variables for template devname and folder are now in implementation class
-  @TestVisible
-  static String donationAckTemplateDevName {
-    get {
-      return DonationAcknowledgementServiceImpl.donationAckTemplateDevName;
-    }
-    set {
-      DonationAcknowledgementServiceImpl.donationAckTemplateDevName = value;
-    }
+
+  // Static instance of implementation
+  private static DonationAcknowledgementServiceImpl serviceInstance;
+
+  static {
+    resetServiceInstance();
   }
+
+  // Test support methods for dependency injection
   @TestVisible
-  static String donationAckTemplateFolder {
-    get {
-      return DonationAcknowledgementServiceImpl.donationAckTemplateFolder;
-    }
-    set {
-      DonationAcknowledgementServiceImpl.donationAckTemplateFolder = value;
-    }
+  public static void setServiceInstance(
+    DonationAcknowledgementServiceImpl instance
+  ) {
+    serviceInstance = instance;
+  }
+
+  @TestVisible
+  public static void resetServiceInstance() {
+    serviceInstance = new DonationAcknowledgementServiceImpl();
   }
 
   /**
@@ -276,15 +278,12 @@ public with sharing class DonationAcknowledgementService {
   public static List<DetailedAckResultWrapper> sendAcknowledgementsInvocable(
     List<OpportunityIdWrapper> inputList
   ) {
-    List<Id> idList = DonationAcknowledgementServiceImpl.extractOpportunityIds(
-      inputList
-    );
-
+    List<Id> idList = serviceInstance.extractOpportunityIds(inputList);
     List<DetailedAckResultWrapper> results = new List<DetailedAckResultWrapper>();
-    DetailedAckResult detailedResult = DonationAcknowledgementServiceImpl.sendAcknowledgementsDetailed(
+    DetailedAckResult detailedResult = serviceInstance.sendAcknowledgementsDetailed(
       idList
     );
-    DetailedAckResultWrapper flowResult = DonationAcknowledgementServiceImpl.convertToFlowWrapper(
+    DetailedAckResultWrapper flowResult = serviceInstance.convertToFlowWrapper(
       detailedResult
     );
     System.debug(LoggingLevel.INFO, flowResult.summaryMessage);
@@ -301,9 +300,7 @@ public with sharing class DonationAcknowledgementService {
   public static DetailedAckResult sendAcknowledgementsDetailed(
     List<Id> idList
   ) {
-    return DonationAcknowledgementServiceImpl.sendAcknowledgementsDetailed(
-      idList
-    );
+    return serviceInstance.sendAcknowledgementsDetailed(idList);
   }
 
   /**
@@ -313,7 +310,7 @@ public with sharing class DonationAcknowledgementService {
    */
   @AuraEnabled
   public static List<OpportunityResult> getOpportunityResults(List<Id> idList) {
-    DetailedAckResult detailedResult = DonationAcknowledgementServiceImpl.sendAcknowledgementsDetailed(
+    DetailedAckResult detailedResult = serviceInstance.sendAcknowledgementsDetailed(
       idList
     );
     return detailedResult.opportunityResults;

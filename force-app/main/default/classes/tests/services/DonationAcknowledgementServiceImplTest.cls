@@ -26,9 +26,11 @@ private class DonationAcknowledgementServiceImplTest {
       new List<Id>{ opp.Id }
     );
     Id mockTemplateId = '00X000000000000AAA';
+    // Instance-based: create and configure service with mock email
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
+      DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
         opps,
         new DonationAcknowledgementService.EmailConfig(mockTemplateId)
       );
@@ -50,8 +52,10 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
     );
+    // Instance-based: create and configure service with mock email
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
       opps,
       new DonationAcknowledgementService.EmailConfig(
         'Test Subject',
@@ -77,8 +81,10 @@ private class DonationAcknowledgementServiceImplTest {
       'Test Subject',
       'Test Body'
     );
+    // Instance-based: create and configure service with mock email
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
       opps,
       config
     );
@@ -130,8 +136,10 @@ private class DonationAcknowledgementServiceImplTest {
       'Test Subject',
       'Test Body'
     );
+    // Instance-based: create and configure service with mock email
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
       opps,
       config
     );
@@ -189,8 +197,10 @@ private class DonationAcknowledgementServiceImplTest {
       'Test Subject',
       'Test Body'
     );
+    // Instance-based: create and configure service with mock email
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed(
+    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
       opps,
       config
     );

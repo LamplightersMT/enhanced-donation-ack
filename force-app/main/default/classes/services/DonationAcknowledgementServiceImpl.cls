@@ -2,18 +2,34 @@
  * Implementation class for donation acknowledgement business logic.
  * This class contains the core functionality that was previously in DonationAcknowledgementService.
  * Part of Facade + Command pattern implementation.
+ *
+ * Supports dependency injection through mutable instance variables:
+ * - donationAckTemplateDevName: Template developer name for email templates
+ * - donationAckTemplateFolder: Folder developer name for email templates
+ * - emailService: Email service implementation for sending emails
  */
 public with sharing class DonationAcknowledgementServiceImpl {
-  // Instance variables for template devname and folder, default to current values
+  // Instance variables for template configuration with default values
   @TestVisible
-  public static String donationAckTemplateDevName = 'HTML_Donation_Acknowledgement';
+  public String donationAckTemplateDevName = 'HTML_Donation_Acknowledgement';
   @TestVisible
-  public static String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
+  public String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
+
+  // Mutable instance variable for dependency injection
+  @TestVisible
+  public IEmailService emailService = new EmailService();
+
+  /**
+   * Default constructor initializes instance variables with default values
+   */
+  public DonationAcknowledgementServiceImpl() {
+    // Instance variables are initialized with defaults above
+  }
 
   /**
    * Shared logic to process Opportunities by Ids
    */
-  public static List<Opportunity> getOpportunitiesByIds(List<Id> idList) {
+  public List<Opportunity> getOpportunitiesByIds(List<Id> idList) {
     if (idList == null || idList.isEmpty()) {
       return new List<Opportunity>();
     }
@@ -35,12 +51,10 @@ public with sharing class DonationAcknowledgementServiceImpl {
   /**
    * Helper to extract opportunity IDs from wrapper input, flattening and filtering nulls
    */
-  public static List<Id> extractOpportunityIds(
+  public List<Id> extractOpportunityIds(
     List<DonationAcknowledgementService.OpportunityIdWrapper> inputList
   ) {
     List<Id> idList = new List<Id>();
-
-    // Flatten all Opportunity Ids from the input wrappers, ignoring nulls
     for (DonationAcknowledgementService.OpportunityIdWrapper w : inputList) {
       if (w != null && w.opportunityIds != null) {
         for (Id idVal : w.opportunityIds) {
@@ -56,7 +70,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
   /**
    * Convert DetailedAckResult to Flow-compatible DetailedAckResultWrapper
    */
-  public static DonationAcknowledgementService.DetailedAckResultWrapper convertToFlowWrapper(
+  public DonationAcknowledgementService.DetailedAckResultWrapper convertToFlowWrapper(
     DonationAcknowledgementService.DetailedAckResult detailedResult
   ) {
     DonationAcknowledgementService.DetailedAckResultWrapper flowResult = new DonationAcknowledgementService.DetailedAckResultWrapper();
@@ -99,7 +113,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * @param idList List of Opportunity IDs to process
    * @return DetailedAckResult with individual opportunity tracking and aggregated counts
    */
-  public static DonationAcknowledgementService.DetailedAckResult sendAcknowledgementsDetailed(
+  public DonationAcknowledgementService.DetailedAckResult sendAcknowledgementsDetailed(
     List<Id> idList
   ) {
     List<Opportunity> opps = getOpportunitiesByIds(idList);
@@ -108,7 +122,6 @@ public with sharing class DonationAcknowledgementServiceImpl {
       emptyResult.emailType = 'No opportunities provided';
       return emptyResult;
     }
-
     DonationAcknowledgementService.DetailedAckResult result;
     DonationAcknowledgementService.EmailConfig config = getEmailConfiguration();
     result = sendEmailsCoreDetailed(opps, config);
@@ -122,7 +135,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Now implemented using Command pattern for better separation of concerns.
    */
   @TestVisible
-  public static DonationAcknowledgementService.DetailedAckResult sendEmailsCoreDetailed(
+  public DonationAcknowledgementService.DetailedAckResult sendEmailsCoreDetailed(
     List<Opportunity> opps,
     DonationAcknowledgementService.EmailConfig config
   ) {
@@ -151,6 +164,8 @@ public with sharing class DonationAcknowledgementServiceImpl {
       prepOutput.emails,
       prepOutput.validOpportunities
     );
+    // Inject emailService for testing
+    sendCmd.emailService = this.emailService;
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput sendOutput = sendCmd.getOutput();
 
@@ -190,7 +205,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Get email configuration with proper exception handling for template lookup
    * @return EmailConfig configured with template or static fallback
    */
-  private static DonationAcknowledgementService.EmailConfig getEmailConfiguration() {
+  private DonationAcknowledgementService.EmailConfig getEmailConfiguration() {
     try {
       EmailTemplate tmpl = [
         SELECT Id
@@ -224,7 +239,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Get static email configuration as fallback
    * @return EmailConfig with static content
    */
-  private static DonationAcknowledgementService.EmailConfig getStaticEmailConfiguration() {
+  private DonationAcknowledgementService.EmailConfig getStaticEmailConfiguration() {
     String subject = 'Thank you for your donation!';
     String body = 'We appreciate your generous support.';
     DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(

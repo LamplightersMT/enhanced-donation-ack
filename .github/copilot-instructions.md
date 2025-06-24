@@ -34,8 +34,6 @@ When renaming files use 'git mv' to preserve history
 
 tail apex logs with `sf apex log tail --debug-level SFDC_DevConsole`
 
-When doing dependency injection, use mutable instance variables instead of constructor injection when possible.
-
 When creating test mocks, always include configuration and verification helper methods (such as setSuccessful, setFailure, setPartialFailure, reset, and verify\* methods) to make tests expressive, maintainable, and robust, following the pattern used in MockEmailService.
 
 Maintain existing whitespace between blocks when editing code to ensure readability and consistency
@@ -50,5 +48,29 @@ Requirements when preparing and iterating on a plan:
 - Use numbers to label each deliverable (e.g., 1, 2, 3, etc)
 - When we make changes to a plan, always respond with a new plan that includes the changes. Do not just say "I will update the plan" or "I will make the changes". Always provide a complete plan with the changes included.
 - Use the format "Phase A: [description of phase]" and "Deliverable 1: [description of deliverable]" to clearly outline the plan.
+- When you will create a file, always include the file name and directory in the plan.
+- If any analysis is required, do it before creating the plan and take the analysis into account when creating the plan.
+- Never begin implementing a plan without explicit approval from me.
+- If the project uses a package manifest, update the package manifest in first the Deliverable step where the update is required
 
-When making code changes, provide a brief description of the changes you will make before making them
+When you are in the process of implementing a written plan:
+
+- When updating status, only add status updates. Do not change the other contents of the plan
+
+When making code changes:
+
+- provide a brief description of the changes you will make before making them
+- Only use methods that exist or that you will create as part of the changes
+
+When creating or modifying classes to use dependency injection, use mutable instance variables instead of constructor injection when possible.
+
+When creating mocks for testing with dependency injection, do a direct implementation of the interface instead of using the System.StubProvider when possible
+
+preferred sf commands:
+
+- run a single test class with: sf apex run test --tests CLASS_NAME --result-format human --synchronous
+- deploy a single file with: sf project deploy start --source-dir path/to/file
+
+When creating tests:
+
+- If comparing strings, always include the expected and actual values in the assertion message to make it clear what the test is checking.

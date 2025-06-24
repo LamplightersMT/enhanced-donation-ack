@@ -21,6 +21,9 @@
         <members>IOrgWideEmailService</members>
         <members>OrgWideEmailService</members>
         <members>MockOrgWideEmailService</members>
+        <members>IEmailService</members>
+        <members>EmailService</members>
+        <members>MockEmailService</members>
         <name>ApexClass</name>
     </types>
     <types>
