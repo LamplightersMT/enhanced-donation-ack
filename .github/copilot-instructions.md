@@ -73,4 +73,5 @@ preferred sf commands:
 
 When creating tests:
 
+- Follow the strategy oulined in the Testing Strategy document: `docs/testing-strategy.md`
 - If comparing strings, always include the expected and actual values in the assertion message to make it clear what the test is checking.
