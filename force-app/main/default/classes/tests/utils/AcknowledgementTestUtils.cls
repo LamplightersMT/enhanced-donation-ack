@@ -80,47 +80,6 @@ public class AcknowledgementTestUtils {
     };
   }
 
-  /**
-   * Create mixed scenario opportunities for comprehensive testing
-   * Returns a map with keys: 'success', 'acknowledged', 'noContact', 'noEmail'
-   */
-  public static Map<String, Opportunity> createMixedScenarioOpportunities() {
-    Contact validContact = [SELECT Id FROM Contact LIMIT 1];
-    Contact noEmailContact = createTestContactWithoutEmail();
-
-    Opportunity successOpp = createTestOpportunity(
-      'Success Opp',
-      validContact,
-      null,
-      100
-    );
-    Opportunity acknowledgedOpp = createTestOpportunity(
-      'Already Acknowledged Opp',
-      validContact,
-      Date.today().addDays(-1),
-      200
-    );
-    Opportunity noContactOpp = createTestOpportunity(
-      'No Contact Opp',
-      null,
-      null,
-      150
-    );
-    Opportunity noEmailOpp = createTestOpportunity(
-      'No Email Opp',
-      noEmailContact,
-      null,
-      75
-    );
-
-    return new Map<String, Opportunity>{
-      'success' => successOpp,
-      'acknowledged' => acknowledgedOpp,
-      'noContact' => noContactOpp,
-      'noEmail' => noEmailOpp
-    };
-  }
-
   // ===== QUERY HELPER METHODS =====
 
   /**

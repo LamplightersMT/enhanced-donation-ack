@@ -7,8 +7,8 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
   private DonationAcknowledgementService.EmailConfig config;
   private AcknowledgementCommandOutputs.EmailPrepOutput prepOutput;
 
-  @TestVisible
-  private static IOrgWideEmailService orgWideEmailService = new OrgWideEmailService();
+  @testVisible
+  public IOrgWideEmailService orgWideEmailService;
 
   public EmailPreparationCommand(
     List<Opportunity> validOpportunities,
@@ -17,6 +17,7 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
     this.validOpportunities = validOpportunities;
     this.config = config;
     this.prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
+    this.orgWideEmailService = new OrgWideEmailService();
   }
 
   /**
@@ -76,7 +77,7 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
    * See: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm
    */
   @TestVisible
-  private static Id getDefaultOrgWideEmailAddressId() {
+  private Id getDefaultOrgWideEmailAddressId() {
     OrgWideEmailAddress defaultNoReply = orgWideEmailService.getDefaultNoReplyAddress();
     if (defaultNoReply == null) {
       System.debug(
