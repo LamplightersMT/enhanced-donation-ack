@@ -42,6 +42,7 @@ Maintain existing comments when editing code unless you have changed the functio
 
 Requirements when preparing and iterating on a plan:
 
+- Plan files are stored in `docs/plans/` under a directory named after the plan
 - Split the plan into a reasonable number of phases, each with a clear goal.
 - Use letters to label each phase (e.g., Phase A, Phase B, etc.).
 - Split phases into deliverables, each with a clear goal.
