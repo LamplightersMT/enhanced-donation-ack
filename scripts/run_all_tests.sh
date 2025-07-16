@@ -7,4 +7,4 @@ set -e
 npm run test:unit
 
 # Run all Apex tests in the default org
-sf apex test run --wait 10 --result-format human
+sf apex test run --wait 1 --result-format human
