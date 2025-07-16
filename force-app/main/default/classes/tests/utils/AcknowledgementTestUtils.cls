@@ -123,9 +123,36 @@ public class AcknowledgementTestUtils {
         CloseDate,
         AccountId,
         ContactId,
-        npsp__Acknowledgment_Date__c
+        npsp__Acknowledgment_Date__c,
+        npsp__Acknowledgment_Status__c
       FROM Opportunity
       WHERE Id IN :oppIds
+    ];
+  }
+
+  /**
+   * Query opportunity with acknowledgment status field
+   */
+  public static Opportunity queryOpportunityWithAckStatus(Id oppId) {
+    return [
+      SELECT Id, npsp__Acknowledgment_Status__c
+      FROM Opportunity
+      WHERE Id = :oppId
+      LIMIT 1
+    ];
+  }
+
+  /**
+   * Query opportunities with acknowledgment status field
+   */
+  public static List<Opportunity> queryOpportunitiesWithAckStatus(
+    List<Id> oppIds
+  ) {
+    return [
+      SELECT Id, Name, npsp__Acknowledgment_Status__c
+      FROM Opportunity
+      WHERE Id IN :oppIds
+      ORDER BY Name
     ];
   }
 
@@ -167,6 +194,21 @@ public class AcknowledgementTestUtils {
         yesterday +
         ', Actual: ' +
         ackDate
+    );
+  }
+
+  /**
+   * Assert that acknowledgment status is set to a specific value
+   */
+  public static void assertAcknowledgmentStatusSet(
+    Id oppId,
+    String expectedStatus
+  ) {
+    Opportunity updatedOpp = queryOpportunityWithAckStatus(oppId);
+    System.assertEquals(
+      expectedStatus,
+      updatedOpp.npsp__Acknowledgment_Status__c,
+      'Acknowledgment status should be set to expected value'
     );
   }
 

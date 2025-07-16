@@ -245,6 +245,60 @@ private class OpportunityValidationCommandTest {
     );
   }
 
+  @isTest
+  static void testValidateOpportunitiesAcknowledgmentStatusUpdate() {
+    // Test validation with acknowledgment date set (should be skipped as already acknowledged)
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Acknowledged Opp',
+      c,
+      Date.today(), // Acknowledgment date set
+      250
+    );
+
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ acknowledgedOpp.Id }
+    );
+
+    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+
+    Test.startTest();
+    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
+      opps,
+      result
+    );
+    validationCmd.execute();
+    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
+    Test.stopTest();
+
+    // Verify no valid opportunities (already acknowledged should be skipped)
+    System.assertEquals(
+      0,
+      validOpps.size(),
+      'Should have 0 valid opportunities since it is already acknowledged'
+    );
+
+    // Verify the opportunity was marked as already acknowledged in the results
+    System.assertEquals(
+      1,
+      result.opportunityResults.size(),
+      'Should have 1 opportunity result'
+    );
+    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    System.assertEquals(
+      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      oppResult.status,
+      'Status should be ALREADY_ACKNOWLEDGED'
+    );
+    System.assertEquals(
+      acknowledgedOpp.Id,
+      oppResult.opportunityId,
+      'Should be the acknowledged opportunity'
+    );
+
+    // Verify acknowledgment status remains set (no change needed as it's already acknowledged)
+  }
+
   // The following test methods were moved to DonationAcknowledgementServiceImplTest as part of the test refactoring plan:
   // - testValidateOpportunitiesMixedScenarios
   // - testValidateOpportunitiesBulkProcessing

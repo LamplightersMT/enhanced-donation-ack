@@ -32,7 +32,8 @@ public with sharing class DatabaseUpdateCommand implements IAcknowledgementComma
         oppsToUpdate.add(
           new Opportunity(
             Id = oppResult.opportunityId,
-            npsp__Acknowledgment_Date__c = oppResult.acknowledgmentDate
+            npsp__Acknowledgment_Date__c = oppResult.acknowledgmentDate,
+            npsp__Acknowledgment_Status__c = 'Acknowledged' // New field update
           )
         );
       }
