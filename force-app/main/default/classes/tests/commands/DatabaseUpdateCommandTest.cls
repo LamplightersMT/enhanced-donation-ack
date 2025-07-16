@@ -423,6 +423,41 @@ private class DatabaseUpdateCommandTest {
     );
   }
 
+  @isTest
+  static void testUpdateDatabaseAcknowledgmentStatus() {
+    // Test acknowledgment status update
+    Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
+
+    // Create successful opportunity result
+    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+      opp.Id,
+      opp.Name
+    );
+    oppResult.acknowledgmentDate = Date.today();
+
+    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+      oppResult
+    };
+
+    Test.startTest();
+    DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(successfulOpps);
+    updateCmd.execute();
+    AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
+    Test.stopTest();
+
+    // Verify acknowledgment status update
+    Opportunity updatedOpp = [
+      SELECT Id, npsp__Acknowledgment_Status__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      'Acknowledged',
+      updatedOpp.npsp__Acknowledgment_Status__c,
+      'Acknowledgment status should be set to "Acknowledged"'
+    );
+  }
+
   /**
    * NOTE: This test class was refactored as part of the test responsibility plan.
    * See docs/test-refactoring-plan.md for details on which methods were moved or removed.

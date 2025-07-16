@@ -42,7 +42,8 @@ public with sharing class DonationAcknowledgementServiceImpl {
         CloseDate,
         AccountId,
         ContactId,
-        npsp__Acknowledgment_Date__c
+        npsp__Acknowledgment_Date__c,
+        npsp__Acknowledgment_Status__c // Added field
       FROM Opportunity
       WHERE Id IN :idList
     ];

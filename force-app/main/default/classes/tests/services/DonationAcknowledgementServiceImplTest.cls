@@ -676,5 +676,10 @@ private class DonationAcknowledgementServiceImplTest {
       summary.contains('4 Opportunities'),
       'Summary should mention 4 Opportunities'
     );
+    // Verify acknowledgment status is set
+    AcknowledgementTestUtils.assertAcknowledgmentStatusSet(
+      successOpp.Id,
+      'Acknowledged'
+    );
   }
 }

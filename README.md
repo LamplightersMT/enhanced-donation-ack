@@ -117,3 +117,12 @@ Run tests with: `scripts/run_all_tests.sh`
 
 - [How to use Flows for List View Records](https://www.accidentalcodersf.com/2020/07/use-flows-from-list-views-salesforce.html)
   - [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)
+
+## Recent Updates
+
+### Acknowledgment Status Field Update
+
+- Added functionality to update the `npsp__Acknowledgment_Status__c` field to "Acknowledged" when acknowledgment emails are successfully sent.
+- Enhanced validation logic to skip opportunities that are already acknowledged.
+- Updated test utilities and integration tests to verify acknowledgment status updates.
+- Improved error handling and backward compatibility for acknowledgment status updates.

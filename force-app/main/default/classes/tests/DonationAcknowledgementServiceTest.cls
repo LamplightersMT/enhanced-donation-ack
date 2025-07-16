@@ -54,6 +54,11 @@ private class DonationAcknowledgementServiceTest {
       System.assert(result[0].summaryMessage.contains('Emails sent: 1'));
       // Verify acknowledgement date is set
       AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
+      // Verify acknowledgment status is set
+      AcknowledgementTestUtils.assertAcknowledgmentStatusSet(
+        opp.Id,
+        'Acknowledged'
+      );
     } finally {
       AcknowledgementTestUtils.resetServiceInstance();
     }
@@ -84,6 +89,11 @@ private class DonationAcknowledgementServiceTest {
       );
       // Verify acknowledgement date is set
       AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
+      // Verify acknowledgment status is set
+      AcknowledgementTestUtils.assertAcknowledgmentStatusSet(
+        opp.Id,
+        'Acknowledged'
+      );
     } finally {
       AcknowledgementTestUtils.resetServiceInstance();
     }
