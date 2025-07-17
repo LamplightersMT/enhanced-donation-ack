@@ -24,6 +24,8 @@ This Salesforce project automates email acknowledgements for donations, similar 
 1. Configure a default org-wide email address in `Setup > Email > Organization-Wide Addresses`
    - This must be the Default No-Reply Address for your organization
    - If no Default No-Reply Address is set, it will fall back to the individual user
+1. Make sure that the profiles that will be using this have the ability to execute Flows
+   - In the profile: `App Permissions > Flow & Flow Orchestration > Run Flows`
 
 ## Known Limitations
 
