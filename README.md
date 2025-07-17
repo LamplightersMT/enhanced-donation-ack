@@ -1,6 +1,6 @@
 # Enhanced Donation Acknowledgement
 
-This Salesforce project automates email acknowledgements for donations, similar to the Nonprofit Success Pack (NPSP). It is designed to be extensible for the addition of
+This Salesforce project automates email acknowledgements for donations, similar to the Nonprofit Success Pack (NPSP). It is designed to be modular and exstensible.
 
 ## Features
 
