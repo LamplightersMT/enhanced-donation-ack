@@ -26,6 +26,7 @@ This Salesforce project automates email acknowledgements for donations, similar 
    - If no Default No-Reply Address is set, it will fall back to the individual user
 1. Make sure that the profiles that will be using this have the ability to execute Flows
    - In the profile: `App Permissions > Flow & Flow Orchestration > Run Flows`
+1. Ensure that the `Enhanced Donation Acknowledgement` flow is enabled
 
 ## Known Limitations
 
