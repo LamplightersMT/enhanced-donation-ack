@@ -15,12 +15,12 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 ## Setup
 
-1. Deploy metadata to your Salesforce org
+1. Deploy to your Salesforce org using the manifest in `manifest/package.xml`
 1. Make sure that `Email > Deliverability` Access Level is "All Email"
 1. Add buttons and panels to the Opportunity object
    1. Add `Mobile & Lightning Actions > Acknowledge Donation` button to the Opportunity page layout
    1. Add "Acknowledge Donations" button to `List View Buttons Layout > Opportunities List View`
-   1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel to the "Related" tab
+   1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel
 1. Configure a default org-wide email address in `Setup > Email > Organization-Wide Addresses`
    - This must be the Default No-Reply Address for your organization
    - If no Default No-Reply Address is set, it will fall back to the individual user
@@ -49,8 +49,6 @@ This Salesforce project automates email acknowledgements for donations, similar 
 
 - Enhance output from flows to show which Opportunities succeeded/errored
 - Support partial email failures by collecting and examining individual Messaging.SendEmailResult objects for granular error handling
-- Mock out email object so that the org doesn't need email "Access Level: All Email" for tests to pass
-- Remove extraneous tests after rearchitecture / implementing dependency injection
 
 ## Architecture
 
