@@ -3,11 +3,11 @@
  * Returns UpdateOutput with update status
  */
 public with sharing class DatabaseUpdateCommand implements IAcknowledgementCommand {
-  private List<DonationAcknowledgementService.OpportunityResult> successfulOpportunities;
+  private List<AckOpportunityResult> successfulOpportunities;
   private AcknowledgementCommandOutputs.UpdateOutput updateOutput;
 
   public DatabaseUpdateCommand(
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpportunities
+    List<AckOpportunityResult> successfulOpportunities
   ) {
     this.successfulOpportunities = successfulOpportunities;
     this.updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
@@ -26,9 +26,7 @@ public with sharing class DatabaseUpdateCommand implements IAcknowledgementComma
     try {
       List<Opportunity> oppsToUpdate = new List<Opportunity>();
 
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : successfulOpportunities
-      ) {
+      for (AckOpportunityResult oppResult : successfulOpportunities) {
         oppsToUpdate.add(
           new Opportunity(
             Id = oppResult.opportunityId,
@@ -48,11 +46,9 @@ public with sharing class DatabaseUpdateCommand implements IAcknowledgementComma
       );
 
       // Mark all opportunities as failed due to database update failure
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : successfulOpportunities
-      ) {
+      for (AckOpportunityResult oppResult : successfulOpportunities) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+          AckStatus.EMAIL_SEND_FAILED,
           'Database update failed: ' + de.getMessage()
         );
       }
@@ -72,11 +68,9 @@ public with sharing class DatabaseUpdateCommand implements IAcknowledgementComma
       );
 
       // Mark all opportunities as failed due to unexpected error
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : successfulOpportunities
-      ) {
+      for (AckOpportunityResult oppResult : successfulOpportunities) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+          AckStatus.EMAIL_SEND_FAILED,
           'Database update error: ' + e.getMessage()
         );
       }

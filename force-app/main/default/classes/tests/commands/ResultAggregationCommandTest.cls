@@ -22,7 +22,7 @@ private class ResultAggregationCommandTest {
     // Test result aggregation with successful email sending scenario
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Create email preparation output
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
@@ -34,7 +34,7 @@ private class ResultAggregationCommandTest {
     );
     prepOutput.contactMap.put(testContact.Id, testContact);
 
-    DonationAcknowledgementService.OpportunityResult prepResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult prepResult = new AckOpportunityResult(
       '006000000000001AAA',
       'Success Opportunity'
     );
@@ -44,21 +44,14 @@ private class ResultAggregationCommandTest {
     // Create successful send output
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
 
-    DonationAcknowledgementService.OpportunityResult successResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult successResult = new AckOpportunityResult(
       '006000000000001AAA',
       'Success Opportunity'
     );
-    successResult.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
+    successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
     successResult.acknowledgmentDate = Date.today();
 
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>{
-        successResult
-      }
-    );
+    sendOutput.setSuccess(new List<AckOpportunityResult>{ successResult });
 
     // Create successful update output
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
@@ -90,7 +83,7 @@ private class ResultAggregationCommandTest {
     );
 
     // Verify opportunity result details
-    DonationAcknowledgementService.OpportunityResult finalResult = result.opportunityResults[0];
+    AckOpportunityResult finalResult = result.opportunityResults[0];
     System.assertEquals(
       '006000000000001AAA',
       finalResult.opportunityId,
@@ -102,7 +95,7 @@ private class ResultAggregationCommandTest {
       'Should have correct opportunity name'
     );
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       finalResult.status,
       'Should have success status'
     );
@@ -123,7 +116,7 @@ private class ResultAggregationCommandTest {
     // Test result aggregation with failed email sending scenario
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Create email preparation output
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
@@ -131,18 +124,15 @@ private class ResultAggregationCommandTest {
     // Create failed send output
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
 
-    DonationAcknowledgementService.OpportunityResult failedResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult failedResult = new AckOpportunityResult(
       '006000000000002AAA',
       'Failed Opportunity'
     );
-    failedResult.setStatus(
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-      'Email sending failed'
-    );
+    failedResult.setStatus(AckStatus.EMAIL_SEND_FAILED, 'Email sending failed');
 
     sendOutput.setFailure(
       'Failed to send emails',
-      new List<DonationAcknowledgementService.OpportunityResult>{ failedResult }
+      new List<AckOpportunityResult>{ failedResult }
     );
 
     // Create update output (not used in failed scenario)
@@ -174,7 +164,7 @@ private class ResultAggregationCommandTest {
     );
 
     // Verify failed opportunity result details
-    DonationAcknowledgementService.OpportunityResult finalResult = result.opportunityResults[0];
+    AckOpportunityResult finalResult = result.opportunityResults[0];
     System.assertEquals(
       '006000000000002AAA',
       finalResult.opportunityId,
@@ -186,7 +176,7 @@ private class ResultAggregationCommandTest {
       'Should have correct opportunity name'
     );
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+      AckStatus.EMAIL_SEND_FAILED,
       finalResult.status,
       'Should have failed status'
     );
@@ -202,7 +192,7 @@ private class ResultAggregationCommandTest {
     // Test result aggregation with multiple opportunities (mixed success/failure)
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Create email preparation output
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
@@ -211,17 +201,14 @@ private class ResultAggregationCommandTest {
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
 
     // Create successful opportunity results
-    List<DonationAcknowledgementService.OpportunityResult> successfulResults = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> successfulResults = new List<AckOpportunityResult>();
 
     for (Integer i = 1; i <= 2; i++) {
-      DonationAcknowledgementService.OpportunityResult successResult = new DonationAcknowledgementService.OpportunityResult(
+      AckOpportunityResult successResult = new AckOpportunityResult(
         '00600000000000' + i + 'AAA',
         'Success Opportunity ' + i
       );
-      successResult.setStatus(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
-        'Email sent successfully'
-      );
+      successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
       successResult.acknowledgmentDate = Date.today();
       successfulResults.add(successResult);
     }
@@ -258,11 +245,9 @@ private class ResultAggregationCommandTest {
     );
 
     // Verify all opportunity results
-    for (
-      DonationAcknowledgementService.OpportunityResult finalResult : result.opportunityResults
-    ) {
+    for (AckOpportunityResult finalResult : result.opportunityResults) {
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
+        AckStatus.SUCCESS,
         finalResult.status,
         'Should have success status'
       );
@@ -288,27 +273,24 @@ private class ResultAggregationCommandTest {
     // Test result aggregation when DetailedAckResult already contains skipped opportunities
 
     // Create initial DetailedAckResult with existing skipped opportunities
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Add some pre-existing skipped opportunities (from validation command)
-    DonationAcknowledgementService.OpportunityResult skippedResult1 = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult skippedResult1 = new AckOpportunityResult(
       '006000000000003AAA',
       'Already Acknowledged Opp'
     );
     skippedResult1.setStatus(
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       'Already acknowledged'
     );
     result.addOpportunityResult(skippedResult1);
 
-    DonationAcknowledgementService.OpportunityResult skippedResult2 = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult skippedResult2 = new AckOpportunityResult(
       '006000000000004AAA',
       'No Contact Opp'
     );
-    skippedResult2.setStatus(
-      DonationAcknowledgementService.AckStatus.NO_CONTACT,
-      'No contact'
-    );
+    skippedResult2.setStatus(AckStatus.NO_CONTACT, 'No contact');
     result.addOpportunityResult(skippedResult2);
 
     // Create email preparation output
@@ -317,21 +299,14 @@ private class ResultAggregationCommandTest {
     // Create successful send output
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
 
-    DonationAcknowledgementService.OpportunityResult successResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult successResult = new AckOpportunityResult(
       '006000000000005AAA',
       'New Success Opportunity'
     );
-    successResult.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
+    successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
     successResult.acknowledgmentDate = Date.today();
 
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>{
-        successResult
-      }
-    );
+    sendOutput.setSuccess(new List<AckOpportunityResult>{ successResult });
 
     // Create update output
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
@@ -363,7 +338,7 @@ private class ResultAggregationCommandTest {
     );
 
     // Verify result contains all expected opportunities
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
       result.opportunityResults
     );
 
@@ -371,14 +346,14 @@ private class ResultAggregationCommandTest {
     AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Already Acknowledged Opp',
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       'Already acknowledged'
     );
 
     AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'No Contact Opp',
-      DonationAcknowledgementService.AckStatus.NO_CONTACT,
+      AckStatus.NO_CONTACT,
       'No contact'
     );
 
@@ -386,7 +361,7 @@ private class ResultAggregationCommandTest {
     AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'New Success Opportunity',
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       'Email sent successfully'
     );
   }
@@ -396,15 +371,13 @@ private class ResultAggregationCommandTest {
     // Test result aggregation with empty inputs
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Create empty outputs
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
 
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>()
-    );
+    sendOutput.setSuccess(new List<AckOpportunityResult>());
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
     updateOutput.setSuccess(0);
@@ -440,15 +413,13 @@ private class ResultAggregationCommandTest {
     // Test that email type metadata is properly set
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Create minimal outputs
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
 
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>()
-    );
+    sendOutput.setSuccess(new List<AckOpportunityResult>());
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
     updateOutput.setSuccess(0);
@@ -475,7 +446,7 @@ private class ResultAggregationCommandTest {
     );
 
     // Test null email type case without Test.startTest()
-    result = new DonationAcknowledgementService.DetailedAckResult();
+    result = new AckDetailedResult();
     ResultAggregationCommand nullCmd = new ResultAggregationCommand(
       result,
       prepOutput,
@@ -497,7 +468,7 @@ private class ResultAggregationCommandTest {
     // and doesn't return a value (implements command pattern correctly)
 
     // Create initial DetailedAckResult
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     // Verify initial state
     System.assertEquals(
@@ -516,18 +487,13 @@ private class ResultAggregationCommandTest {
 
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
 
-    DonationAcknowledgementService.OpportunityResult testResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult testResult = new AckOpportunityResult(
       '006000000000008AAA',
       'Direct Modification Test'
     );
-    testResult.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Test reason'
-    );
+    testResult.setStatus(AckStatus.SUCCESS, 'Test reason');
 
-    sendOutput.setSuccess(
-      new List<DonationAcknowledgementService.OpportunityResult>{ testResult }
-    );
+    sendOutput.setSuccess(new List<AckOpportunityResult>{ testResult });
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
     updateOutput.setSuccess(1);
@@ -560,7 +526,7 @@ private class ResultAggregationCommandTest {
     );
 
     // Verify the opportunity result was added
-    DonationAcknowledgementService.OpportunityResult addedResult = result.opportunityResults[0];
+    AckOpportunityResult addedResult = result.opportunityResults[0];
     System.assertEquals(
       '006000000000008AAA',
       addedResult.opportunityId,
@@ -572,7 +538,7 @@ private class ResultAggregationCommandTest {
       'Should have correct name'
     );
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       addedResult.status,
       'Should have correct status'
     );

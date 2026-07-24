@@ -30,9 +30,9 @@ private class DonationAcknowledgementServiceImplTest {
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
+      AckDetailedResult result = service.sendEmailsCoreDetailed(
         opps,
-        new DonationAcknowledgementService.EmailConfig(mockTemplateId)
+        new AckEmailConfig(mockTemplateId)
       );
       System.assert(result.emailsSent >= 0, 'Should return a valid count');
     } catch (Exception e) {
@@ -55,12 +55,9 @@ private class DonationAcknowledgementServiceImplTest {
     // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
+    AckDetailedResult result = service.sendEmailsCoreDetailed(
       opps,
-      new DonationAcknowledgementService.EmailConfig(
-        'Test Subject',
-        'Test Body'
-      )
+      new AckEmailConfig('Test Subject', 'Test Body')
     );
     Test.stopTest();
     System.assertEquals(1, result.emailsSent, 'Should process one opportunity');
@@ -96,17 +93,11 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ acknowledgedOpp.Id, successOpp.Id, noContactOpp.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 3, 1, 1, 1, 0);
     System.assertEquals(
@@ -139,17 +130,11 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp1.Id, opp2.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 2, 2, 0, 0, 0);
     System.assertEquals(
@@ -157,11 +142,9 @@ private class DonationAcknowledgementServiceImplTest {
       result.opportunityResults.size(),
       'Should have 2 opportunity results'
     );
-    for (
-      DonationAcknowledgementService.OpportunityResult oppResult : result.opportunityResults
-    ) {
+    for (AckOpportunityResult oppResult : result.opportunityResults) {
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
+        AckStatus.SUCCESS,
         oppResult.status,
         'Should be successful'
       );
@@ -229,20 +212,14 @@ private class DonationAcknowledgementServiceImplTest {
         noEmailOpp.Id
       }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
-    List<DonationAcknowledgementService.OpportunityResult> successfulResults = result.getSuccessfulResults();
+    List<AckOpportunityResult> successfulResults = result.getSuccessfulResults();
     System.assertEquals(
       1,
       successfulResults.size(),
@@ -279,16 +256,10 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ validOpp.Id, invalidOpp.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     // Add assertions as needed for transaction behavior
   }
@@ -311,16 +282,10 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       oppIds
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Bulk Subject',
-      'Bulk Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Bulk Subject', 'Bulk Body');
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     System.assertEquals(
       5,
@@ -340,16 +305,11 @@ private class DonationAcknowledgementServiceImplTest {
       new List<Id>{ opp.Id }
     );
     Id mockTemplateId = '00X000000000000AAA';
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      mockTemplateId
-    );
+    AckEmailConfig config = new AckEmailConfig(mockTemplateId);
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-        opps,
-        config
-      );
+      AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
       System.assert(result.emailsSent >= 0, 'Should return a valid count');
     } catch (Exception e) {
       System.assert(
@@ -385,23 +345,20 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp1.Id, opp2.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+    AckEmailConfig config = new AckEmailConfig(
       'Multi Contact Subject',
       'Multi Contact Body'
     );
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     System.assertEquals(
       2,
       result.emailsSent,
       'Should send emails to both contacts'
     );
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
       result.opportunityResults
     );
     System.assertEquals(
@@ -430,16 +387,13 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+    AckEmailConfig config = new AckEmailConfig(
       'OrgWide Subject',
       'OrgWide Body'
     );
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     System.assertEquals(
       1,
@@ -475,21 +429,21 @@ private class DonationAcknowledgementServiceImplTest {
     // Case 1: DefaultNoReply
     EmailPreparationCommand cmdDefault = new EmailPreparationCommand(
       new List<Opportunity>(),
-      new DonationAcknowledgementService.EmailConfig('', '')
+      new AckEmailConfig('', '')
     );
     cmdDefault.orgWideEmailService = mockServiceDefault;
     resultDefaultNoReply = cmdDefault.getDefaultOrgWideEmailAddressId();
     // Case 2: UserSelectionAndDefaultNoReply
     EmailPreparationCommand cmdSelection = new EmailPreparationCommand(
       new List<Opportunity>(),
-      new DonationAcknowledgementService.EmailConfig('', '')
+      new AckEmailConfig('', '')
     );
     cmdSelection.orgWideEmailService = mockServiceSelection;
     resultSelection = cmdSelection.getDefaultOrgWideEmailAddressId();
     // Case 3: No default
     EmailPreparationCommand cmdNone = new EmailPreparationCommand(
       new List<Opportunity>(),
-      new DonationAcknowledgementService.EmailConfig('', '')
+      new AckEmailConfig('', '')
     );
     cmdNone.orgWideEmailService = mockServiceNone;
     resultNone = cmdNone.getDefaultOrgWideEmailAddressId();
@@ -520,16 +474,11 @@ private class DonationAcknowledgementServiceImplTest {
       new List<Id>{ opp.Id }
     );
     Id mockTemplateId = '00X000000000000AAA';
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      mockTemplateId
-    );
+    AckEmailConfig config = new AckEmailConfig(mockTemplateId);
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-        opps,
-        config
-      );
+      AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
       System.assert(result.emailsSent >= 0, 'Should return a valid count');
     } catch (Exception e) {
       System.assert(
@@ -549,16 +498,10 @@ private class DonationAcknowledgementServiceImplTest {
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Type Subject',
-      'Type Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Type Subject', 'Type Body');
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     System.assert(
       result.emailsSent >= 0,
@@ -606,16 +549,10 @@ private class DonationAcknowledgementServiceImplTest {
         noEmailOpp.Id
       }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
   }
@@ -660,16 +597,13 @@ private class DonationAcknowledgementServiceImplTest {
         noEmailOpp.Id
       }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+    AckEmailConfig config = new AckEmailConfig(
       'Integration Subject',
       'Integration Body'
     );
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     String summary = result.buildSummaryMessage();
     System.assert(

@@ -31,7 +31,7 @@ private class EmailSendCommandTest {
     email.setTargetObjectId(c.Id);
 
     // Create opportunity result
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult oppResult = new AckOpportunityResult(
       '006000000000001AAA',
       'Test Opportunity'
     );
@@ -40,7 +40,7 @@ private class EmailSendCommandTest {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>{
       email
     };
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> oppResults = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -70,9 +70,9 @@ private class EmailSendCommandTest {
     );
 
     // Verify opportunity result was marked as successful
-    DonationAcknowledgementService.OpportunityResult result = output.successfulOpportunities[0];
+    AckOpportunityResult result = output.successfulOpportunities[0];
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       result.status,
       'Should be marked as successful'
     );
@@ -99,7 +99,7 @@ private class EmailSendCommandTest {
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> oppResults = new List<AckOpportunityResult>();
 
     // Create multiple prepared emails and opportunity results
     for (Integer i = 1; i <= 3; i++) {
@@ -109,7 +109,7 @@ private class EmailSendCommandTest {
       email.setTargetObjectId(c.Id);
       emails.add(email);
 
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+      AckOpportunityResult oppResult = new AckOpportunityResult(
         '00600000000000' + i + 'AAA',
         'Test Opportunity ' + i
       );
@@ -143,11 +143,9 @@ private class EmailSendCommandTest {
     );
 
     // Verify all opportunity results were marked as successful
-    for (
-      DonationAcknowledgementService.OpportunityResult result : output.successfulOpportunities
-    ) {
+    for (AckOpportunityResult result : output.successfulOpportunities) {
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
+        AckStatus.SUCCESS,
         result.status,
         'Should be marked as successful'
       );
@@ -173,7 +171,7 @@ private class EmailSendCommandTest {
     MockEmailService mock = new MockEmailService();
     mock.setSuccessful();
     List<Messaging.SingleEmailMessage> emptyEmails = new List<Messaging.SingleEmailMessage>();
-    List<DonationAcknowledgementService.OpportunityResult> emptyResults = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> emptyResults = new List<AckOpportunityResult>();
 
     Test.startTest();
     EmailSendCommand sendCmd = new EmailSendCommand(emptyEmails, emptyResults);
@@ -222,7 +220,7 @@ private class EmailSendCommandTest {
     email.setTargetObjectId(c.Id);
 
     // Create opportunity result
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult oppResult = new AckOpportunityResult(
       '006000000000002AAA',
       'Error Test Opportunity'
     );
@@ -231,7 +229,7 @@ private class EmailSendCommandTest {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>{
       email
     };
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> oppResults = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -275,7 +273,7 @@ private class EmailSendCommandTest {
     email.setPlainTextBody('Status Test Body');
     email.setTargetObjectId(c.Id);
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult oppResult = new AckOpportunityResult(
       '006000000000003AAA',
       'Status Test Opportunity'
     );
@@ -293,7 +291,7 @@ private class EmailSendCommandTest {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>{
       email
     };
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> oppResults = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -305,7 +303,7 @@ private class EmailSendCommandTest {
     Test.stopTest();
 
     // Verify opportunity result was updated
-    DonationAcknowledgementService.OpportunityResult updatedResult = output.successfulOpportunities[0];
+    AckOpportunityResult updatedResult = output.successfulOpportunities[0];
 
     // Check that it's the same object reference (should be modified in place)
     System.assertEquals(
@@ -316,7 +314,7 @@ private class EmailSendCommandTest {
 
     // Verify status updates
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       oppResult.status,
       'Original object should be updated with success status'
     );
@@ -347,7 +345,7 @@ private class EmailSendCommandTest {
     email.setPlainTextBody('Output Test Body');
     email.setTargetObjectId(c.Id);
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult oppResult = new AckOpportunityResult(
       '006000000000006AAA',
       'Output Test Opportunity'
     );
@@ -356,7 +354,7 @@ private class EmailSendCommandTest {
     List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>{
       email
     };
-    List<DonationAcknowledgementService.OpportunityResult> oppResults = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> oppResults = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -399,7 +397,7 @@ private class EmailSendCommandTest {
     );
 
     // Verify successful opportunity details
-    DonationAcknowledgementService.OpportunityResult successResult = output.successfulOpportunities[0];
+    AckOpportunityResult successResult = output.successfulOpportunities[0];
     System.assertEquals(
       '006000000000006AAA',
       successResult.opportunityId,

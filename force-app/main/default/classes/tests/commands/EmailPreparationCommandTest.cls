@@ -38,7 +38,7 @@ private class EmailPreparationCommandTest {
       new List<Id>{ validOpp.Id }
     );
 
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+    AckEmailConfig config = new AckEmailConfig(
       'Test Subject',
       'Test Body Content'
     );
@@ -88,7 +88,7 @@ private class EmailPreparationCommandTest {
     );
 
     // Verify opportunity result properties
-    DonationAcknowledgementService.OpportunityResult oppResult = output.validOpportunities[0];
+    AckOpportunityResult oppResult = output.validOpportunities[0];
     System.assertEquals(
       validOpp.Id,
       oppResult.opportunityId,
@@ -137,10 +137,7 @@ private class EmailPreparationCommandTest {
       oppIds
     );
 
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Multi Subject',
-      'Multi Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Multi Subject', 'Multi Body');
 
     Test.startTest();
     EmailPreparationCommand prepCmd = new EmailPreparationCommand(
@@ -189,9 +186,7 @@ private class EmailPreparationCommandTest {
 
     // Verify all opportunity results have correct data
     Set<Id> processedOppIds = new Set<Id>();
-    for (
-      DonationAcknowledgementService.OpportunityResult oppResult : output.validOpportunities
-    ) {
+    for (AckOpportunityResult oppResult : output.validOpportunities) {
       processedOppIds.add(oppResult.opportunityId);
       System.assertEquals(
         'testuser@example.com',
@@ -217,10 +212,7 @@ private class EmailPreparationCommandTest {
   static void testPrepareEmailsEmptyList() {
     // Test email preparation with empty opportunity list
     List<Opportunity> emptyOpps = new List<Opportunity>();
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Empty Subject',
-      'Empty Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Empty Subject', 'Empty Body');
 
     Test.startTest();
     EmailPreparationCommand prepCmd = new EmailPreparationCommand(
@@ -257,10 +249,7 @@ private class EmailPreparationCommandTest {
 
     List<Opportunity> emptyContactOpps = new List<Opportunity>();
 
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
 
     Test.startTest();
     EmailPreparationCommand prepCmd = new EmailPreparationCommand(
@@ -304,7 +293,7 @@ private class EmailPreparationCommandTest {
       new List<Id>{ validOpp.Id }
     );
 
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
+    AckEmailConfig config = new AckEmailConfig(
       'Detailed Subject',
       'Detailed Body Content'
     );
@@ -358,7 +347,7 @@ private class EmailPreparationCommandTest {
     );
 
     // Verify opportunity result details
-    DonationAcknowledgementService.OpportunityResult oppResult = output.validOpportunities[0];
+    AckOpportunityResult oppResult = output.validOpportunities[0];
     System.assertEquals(
       validOpp.Id,
       oppResult.opportunityId,

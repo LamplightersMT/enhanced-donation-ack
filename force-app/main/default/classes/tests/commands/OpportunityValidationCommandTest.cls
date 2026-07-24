@@ -38,7 +38,7 @@ private class OpportunityValidationCommandTest {
       new List<Id>{ validOpp.Id }
     );
 
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -80,7 +80,7 @@ private class OpportunityValidationCommandTest {
       new List<Id>{ acknowledgedOpp.Id }
     );
 
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -104,9 +104,9 @@ private class OpportunityValidationCommandTest {
       result.opportunityResults.size(),
       'Should have 1 skipped result'
     );
-    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    AckOpportunityResult oppResult = result.opportunityResults[0];
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       oppResult.status,
       'Should be already acknowledged'
     );
@@ -130,7 +130,7 @@ private class OpportunityValidationCommandTest {
       new List<Id>{ noContactOpp.Id }
     );
 
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -154,9 +154,9 @@ private class OpportunityValidationCommandTest {
       result.opportunityResults.size(),
       'Should have 1 skipped result'
     );
-    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    AckOpportunityResult oppResult = result.opportunityResults[0];
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.NO_CONTACT,
+      AckStatus.NO_CONTACT,
       oppResult.status,
       'Should be no contact'
     );
@@ -181,7 +181,7 @@ private class OpportunityValidationCommandTest {
       new List<Id>{ noEmailOpp.Id }
     );
 
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -205,9 +205,9 @@ private class OpportunityValidationCommandTest {
       result.opportunityResults.size(),
       'Should have 1 skipped result'
     );
-    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    AckOpportunityResult oppResult = result.opportunityResults[0];
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.NO_EMAIL,
+      AckStatus.NO_EMAIL,
       oppResult.status,
       'Should be no email'
     );
@@ -221,7 +221,7 @@ private class OpportunityValidationCommandTest {
   static void testValidateOpportunitiesEmptyList() {
     // Test validation with empty opportunity list
     List<Opportunity> emptyOpps = new List<Opportunity>();
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -260,7 +260,7 @@ private class OpportunityValidationCommandTest {
       new List<Id>{ acknowledgedOpp.Id }
     );
 
-    DonationAcknowledgementService.DetailedAckResult result = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult result = new AckDetailedResult();
 
     Test.startTest();
     OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
@@ -284,9 +284,9 @@ private class OpportunityValidationCommandTest {
       result.opportunityResults.size(),
       'Should have 1 opportunity result'
     );
-    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    AckOpportunityResult oppResult = result.opportunityResults[0];
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       oppResult.status,
       'Status should be ALREADY_ACKNOWLEDGED'
     );

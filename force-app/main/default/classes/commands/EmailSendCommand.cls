@@ -4,7 +4,7 @@
  */
 public with sharing class EmailSendCommand implements IAcknowledgementCommand {
   private List<Messaging.SingleEmailMessage> emails;
-  private List<DonationAcknowledgementService.OpportunityResult> opportunityResults;
+  private List<AckOpportunityResult> opportunityResults;
   private AcknowledgementCommandOutputs.SendOutput sendOutput;
 
   // Mutable instance variable for dependency injection
@@ -13,7 +13,7 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
 
   public EmailSendCommand(
     List<Messaging.SingleEmailMessage> emails,
-    List<DonationAcknowledgementService.OpportunityResult> opportunityResults
+    List<AckOpportunityResult> opportunityResults
   ) {
     this.emails = emails;
     this.opportunityResults = opportunityResults;
@@ -26,9 +26,7 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
   public void execute() {
     if (emails.isEmpty()) {
       sendOutput = new AcknowledgementCommandOutputs.SendOutput()
-        .setSuccess(
-          new List<DonationAcknowledgementService.OpportunityResult>()
-        );
+        .setSuccess(new List<AckOpportunityResult>());
       return;
     }
 
@@ -37,13 +35,8 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
 
       // Mark all prepared opportunities as successful
       Date today = Date.today();
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : opportunityResults
-      ) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.SUCCESS,
-          'Email sent successfully'
-        );
+      for (AckOpportunityResult oppResult : opportunityResults) {
+        oppResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
         oppResult.acknowledgmentDate = today;
       }
 
@@ -56,11 +49,9 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
       );
 
       // Mark all prepared opportunities as failed
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : opportunityResults
-      ) {
+      for (AckOpportunityResult oppResult : opportunityResults) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+          AckStatus.EMAIL_SEND_FAILED,
           'Email sending failed: ' + ee.getMessage()
         );
       }
@@ -81,11 +72,9 @@ public with sharing class EmailSendCommand implements IAcknowledgementCommand {
       );
 
       // Mark all prepared opportunities as failed
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : opportunityResults
-      ) {
+      for (AckOpportunityResult oppResult : opportunityResults) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+          AckStatus.EMAIL_SEND_FAILED,
           'Unexpected error: ' + e.getMessage()
         );
       }
