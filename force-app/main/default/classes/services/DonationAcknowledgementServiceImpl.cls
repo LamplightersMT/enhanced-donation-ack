@@ -41,7 +41,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
         StageName,
         CloseDate,
         AccountId,
-        ContactId,
+        npsp__Primary_Contact__c,
         npsp__Acknowledgment_Date__c,
         npsp__Acknowledgment_Status__c // Added field
       FROM Opportunity
@@ -82,6 +82,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
     flowResult.alreadyAcknowledged = detailedResult.alreadyAcknowledged;
     flowResult.noValidContact = detailedResult.noValidContact;
     flowResult.emailSendFailures = detailedResult.emailSendFailures;
+    flowResult.ackUpdateFailures = detailedResult.ackUpdateFailures;
     flowResult.emailType = detailedResult.emailType;
     flowResult.summaryMessage = detailedResult.buildSummaryMessage();
 
@@ -166,34 +167,27 @@ public with sharing class DonationAcknowledgementServiceImpl {
     sendCmd.execute();
     AcknowledgementCommandOutputs.SendOutput sendOutput = sendCmd.getOutput();
 
-    // 4. Update database with acknowledgment dates for successful sends
-    if (sendOutput.isSuccess && !sendOutput.successfulOpportunities.isEmpty()) {
+    // 4. Update database with acknowledgment dates for any successfully-sent emails.
+    // Runs whenever there is at least one successful send, regardless of whether
+    // other messages in the same batch failed.
+    AcknowledgementCommandOutputs.UpdateOutput updateOutput = null;
+    if (!sendOutput.successfulOpportunities.isEmpty()) {
       DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(
         sendOutput.successfulOpportunities
       );
       updateCmd.execute();
-      AcknowledgementCommandOutputs.UpdateOutput updateOutput = updateCmd.getOutput();
-
-      // 5. Aggregate all results into final DetailedAckResult
-      ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
-        detailedResult,
-        prepOutput,
-        sendOutput,
-        updateOutput,
-        config.emailType
-      );
-      aggregationCmd.execute();
-    } else {
-      // Handle failed sends - still need to aggregate results
-      ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
-        detailedResult,
-        prepOutput,
-        sendOutput,
-        null,
-        config.emailType
-      );
-      aggregationCmd.execute();
+      updateOutput = updateCmd.getOutput();
     }
+
+    // 5. Aggregate all results (successes AND failures) into final DetailedAckResult
+    ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
+      detailedResult,
+      prepOutput,
+      sendOutput,
+      updateOutput,
+      config.emailType
+    );
+    aggregationCmd.execute();
 
     return detailedResult;
   }

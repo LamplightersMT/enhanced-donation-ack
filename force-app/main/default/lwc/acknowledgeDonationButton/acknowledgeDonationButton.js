@@ -33,6 +33,7 @@ export default class AcknowledgeDonationButton extends LightningElement {
       const alreadyAcknowledged = detailedResult.alreadyAcknowledged || 0;
       const noValidContact = detailedResult.noValidContact || 0;
       const emailSendFailures = detailedResult.emailSendFailures || 0;
+      const ackUpdateFailures = detailedResult.ackUpdateFailures || 0;
       const totalOpportunities = detailedResult.totalOpportunities || 0;
 
       // Create enhanced success message with detailed counts
@@ -45,6 +46,9 @@ export default class AcknowledgeDonationButton extends LightningElement {
       }
       if (emailSendFailures > 0) {
         message += `, ${emailSendFailures} failed`;
+      }
+      if (ackUpdateFailures > 0) {
+        message += `, ${ackUpdateFailures} sent but record update failed`;
       }
 
       // Determine appropriate title and variant based on results
@@ -69,6 +73,15 @@ export default class AcknowledgeDonationButton extends LightningElement {
       } else {
         title = "Processing Complete";
         variant = "info";
+      }
+
+      // A run that sent an email but failed to persist the acknowledgement record
+      // needs manual attention - it must never be reported as a plain green
+      // success. Cap severity to at most "warning" for this condition alone
+      // (an already-worse variant, e.g. "error", is left untouched).
+      if (ackUpdateFailures > 0 && variant === "success") {
+        title = "Completed With Issues";
+        variant = "warning";
       }
 
       this.dispatchEvent(

@@ -1,6 +1,6 @@
 /**
  * Test class for DatabaseUpdateCommand
- * Tests database update logic, error handling, and transaction management
+ * Tests database update logic, per-record partial-failure handling, and transaction management
  */
 @isTest
 private class DatabaseUpdateCommandTest {
@@ -38,16 +38,15 @@ private class DatabaseUpdateCommandTest {
     Test.stopTest();
 
     // Verify successful update output
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Should have no error message'
-    );
     System.assertEquals(
       1,
       output.recordsUpdated,
       'Should have updated 1 record'
+    );
+    System.assertEquals(
+      0,
+      output.recordsFailed,
+      'Should have 0 failed records'
     );
 
     // Verify database was actually updated
@@ -96,16 +95,15 @@ private class DatabaseUpdateCommandTest {
     Test.stopTest();
 
     // Verify successful update output
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Should have no error message'
-    );
     System.assertEquals(
       3,
       output.recordsUpdated,
       'Should have updated 3 records'
+    );
+    System.assertEquals(
+      0,
+      output.recordsFailed,
+      'Should have 0 failed records'
     );
 
     // Verify all opportunities were updated in database
@@ -142,19 +140,14 @@ private class DatabaseUpdateCommandTest {
 
     // Verify empty list handling
     System.assertEquals(
-      true,
-      output.isSuccess,
-      'Should be successful (empty case)'
-    );
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Should have no error message'
-    );
-    System.assertEquals(
       0,
       output.recordsUpdated,
       'Should have updated 0 records'
+    );
+    System.assertEquals(
+      0,
+      output.recordsFailed,
+      'Should have 0 failed records'
     );
   }
 
@@ -207,7 +200,6 @@ private class DatabaseUpdateCommandTest {
     Test.stopTest();
 
     // Verify successful update
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
     System.assertEquals(
       2,
       output.recordsUpdated,
@@ -241,88 +233,89 @@ private class DatabaseUpdateCommandTest {
   }
 
   @isTest
-  static void testUpdateDatabaseWithInvalidOpportunityId() {
-    // Test database update with invalid opportunity ID
-    // Note: In test context, DML operations are more forgiving
-    // This test verifies the command structure handles errors properly
+  static void testUpdateDatabasePartialFailureMarksAckUpdateFailed() {
+    // Test that a DML failure on one record (email already sent) does not block
+    // the others, and marks the failed record's opportunity result as
+    // ACK_UPDATE_FAILED rather than throwing.
+    Opportunity goodOpp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
-    AckOpportunityResult invalidResult = new AckOpportunityResult(
-      '006000000000000AAA', // Invalid ID format
-      'Invalid Opportunity'
+    Opportunity docToDelete = AcknowledgementTestUtils.createTestOpportunity(
+      'Will Be Deleted Opp',
+      null,
+      null,
+      50
     );
-    invalidResult.acknowledgmentDate = Date.today();
+    Id deletedOppId = docToDelete.Id;
+    delete docToDelete;
 
-    List<AckOpportunityResult> invalidOpps = new List<AckOpportunityResult>{
-      invalidResult
-    };
-
-    Test.startTest();
-    try {
-      DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(invalidOpps);
-      updateCmd.execute();
-      AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
-
-      // In test context, this might succeed with mock data
-      // The important thing is that the command doesn't crash unexpectedly
-      System.assertNotEquals(null, output, 'Output should not be null');
-    } catch (Exception e) {
-      // If an error occurs, verify it's properly handled
-      // In test context, we may get different types of exceptions
-      System.assert(
-        e.getMessage().contains('Failed to update acknowledgement dates') ||
-          e.getMessage().contains('Script-thrown exception') ||
-          e.getMessage().contains('invalid'),
-        'Should handle error appropriately: ' + e.getMessage()
-      );
-    }
-    Test.stopTest();
-  }
-
-  @isTest
-  static void testUpdateDatabaseOpportunityResultModification() {
-    // Test that opportunity results are properly modified on database errors
-    Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
-
-    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
-    oppResult.acknowledgmentDate = Date.today();
-
-    // Verify initial state
-    System.assertNotEquals(
-      AckStatus.EMAIL_SEND_FAILED,
-      oppResult.status,
-      'Status should not start as failed'
+    AckOpportunityResult goodResult = new AckOpportunityResult(
+      goodOpp.Id,
+      goodOpp.Name
     );
+    goodResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
+    goodResult.acknowledgmentDate = Date.today();
+
+    AckOpportunityResult badResult = new AckOpportunityResult(
+      deletedOppId,
+      'Will Be Deleted Opp'
+    );
+    badResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
+    badResult.acknowledgmentDate = Date.today();
 
     List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
-      oppResult
+      goodResult,
+      badResult
     };
 
     Test.startTest();
-    try {
-      DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(
-        successfulOpps
-      );
-      updateCmd.execute();
-      AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
-
-      // In successful case, verify output
-      System.assertEquals(true, output.isSuccess, 'Should be successful');
-
-      // Opportunity result status should not be modified on success
-      // (DatabaseUpdateCommand doesn't modify successful results)
-    } catch (AuraHandledException e) {
-      // In error case, verify opportunity results were marked as failed
-      System.assertEquals(
-        AckStatus.EMAIL_SEND_FAILED,
-        oppResult.status,
-        'Status should be marked as failed on database error'
-      );
-      System.assert(
-        oppResult.reason.contains('Database update'),
-        'Reason should mention database update error'
-      );
-    }
+    DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(successfulOpps);
+    updateCmd.execute();
+    AcknowledgementCommandOutputs.UpdateOutput output = updateCmd.getOutput();
     Test.stopTest();
+
+    // The command must not throw, and must report the partial failure via counts
+    System.assertEquals(
+      1,
+      output.recordsUpdated,
+      'Should have updated the 1 record that still exists'
+    );
+    System.assertEquals(
+      1,
+      output.recordsFailed,
+      'Should have failed to update the 1 deleted record'
+    );
+
+    // The good record keeps its SUCCESS status
+    System.assertEquals(
+      AckStatus.SUCCESS,
+      goodResult.status,
+      'Successful DB update should not change the SUCCESS status'
+    );
+
+    // The bad record is downgraded to ACK_UPDATE_FAILED - the email already went
+    // out, so this needs manual attention rather than silently vanishing.
+    System.assertEquals(
+      AckStatus.ACK_UPDATE_FAILED,
+      badResult.status,
+      'Record whose DB update failed should be marked ACK_UPDATE_FAILED'
+    );
+    System.assert(
+      badResult.reason.contains('Email was sent, but record update failed'),
+      'Reason should explain the email/DB mismatch. Actual: ' + badResult.reason
+    );
+    System.assert(
+      badResult.reason.contains('manual attention'),
+      'Reason should call out that manual attention is needed. Actual: ' +
+      badResult.reason
+    );
+    System.assert(
+      badResult.isFailed(),
+      'ACK_UPDATE_FAILED should be considered a failure'
+    );
+    System.assert(
+      !badResult.isSuccess(),
+      'ACK_UPDATE_FAILED should not be considered a success, even though the email sent'
+    );
   }
 
   @isTest
@@ -345,18 +338,15 @@ private class DatabaseUpdateCommandTest {
 
     // Verify output structure
     System.assertNotEquals(null, output, 'Output should not be null');
-
-    // Verify success case properties
-    System.assertEquals(true, output.isSuccess, 'Should be successful');
-    System.assertEquals(
-      null,
-      output.errorMessage,
-      'Error message should be null on success'
-    );
     System.assertEquals(
       1,
       output.recordsUpdated,
       'Should have updated 1 record'
+    );
+    System.assertEquals(
+      0,
+      output.recordsFailed,
+      'Should have 0 failed records'
     );
 
     // Verify that recordsUpdated reflects actual database changes
@@ -387,11 +377,6 @@ private class DatabaseUpdateCommandTest {
     Test.stopTest();
 
     // Command should handle null acknowledgment date gracefully
-    System.assertEquals(
-      true,
-      output.isSuccess,
-      'Should be successful even with null date'
-    );
     System.assertEquals(
       1,
       output.recordsUpdated,

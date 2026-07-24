@@ -36,6 +36,7 @@ public with sharing class AckOpportunityResult {
 
   public Boolean isFailed() {
     return this.status == AckStatus.EMAIL_SEND_FAILED ||
-      this.status == AckStatus.INVALID_OPPORTUNITY;
+      this.status == AckStatus.INVALID_OPPORTUNITY ||
+      this.status == AckStatus.ACK_UPDATE_FAILED;
   }
 }

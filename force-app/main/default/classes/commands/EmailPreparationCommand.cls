@@ -29,8 +29,8 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
     // Bulk query for all Contacts related to the valid Opportunities
     Set<Id> contactIds = new Set<Id>();
     for (Opportunity opp : validOpportunities) {
-      if (opp.ContactId != null) {
-        contactIds.add(opp.ContactId);
+      if (opp.npsp__Primary_Contact__c != null) {
+        contactIds.add(opp.npsp__Primary_Contact__c);
       }
     }
     prepOutput.contactMap = new Map<Id, Contact>(
@@ -39,7 +39,7 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
 
     // Prepare emails for each valid opportunity
     for (Opportunity opp : validOpportunities) {
-      Contact contact = prepOutput.contactMap.get(opp.ContactId);
+      Contact contact = prepOutput.contactMap.get(opp.npsp__Primary_Contact__c);
       if (contact != null) {
         AckOpportunityResult oppResult = new AckOpportunityResult(
           opp.Id,

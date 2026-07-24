@@ -11,6 +11,8 @@ public with sharing class AckDetailedResult {
   @AuraEnabled
   public Integer emailSendFailures;
   @AuraEnabled
+  public Integer ackUpdateFailures;
+  @AuraEnabled
   public List<AckOpportunityResult> opportunityResults;
   @AuraEnabled
   public String emailType;
@@ -21,6 +23,7 @@ public with sharing class AckDetailedResult {
     this.alreadyAcknowledged = 0;
     this.noValidContact = 0;
     this.emailSendFailures = 0;
+    this.ackUpdateFailures = 0;
     this.opportunityResults = new List<AckOpportunityResult>();
   }
 
@@ -28,7 +31,12 @@ public with sharing class AckDetailedResult {
     this.opportunityResults.add(oppResult);
     this.totalOpportunities++;
 
-    if (oppResult.isSuccess()) {
+    // NOTE: results are added to this aggregate AFTER DatabaseUpdateCommand has run,
+    // so status is final by this point - a result whose email sent but whose DB
+    // update failed will already carry ACK_UPDATE_FAILED, not SUCCESS.
+    if (oppResult.status == AckStatus.ACK_UPDATE_FAILED) {
+      this.ackUpdateFailures++;
+    } else if (oppResult.isSuccess()) {
       this.emailsSent++;
     } else if (oppResult.status == AckStatus.ALREADY_ACKNOWLEDGED) {
       this.alreadyAcknowledged++;
@@ -59,6 +67,10 @@ public with sharing class AckDetailedResult {
 
     if (emailSendFailures > 0) {
       message += ', Email send failures: ' + emailSendFailures;
+    }
+
+    if (ackUpdateFailures > 0) {
+      message += ', Sent but record update failed: ' + ackUpdateFailures;
     }
 
     if (emailType != null) {

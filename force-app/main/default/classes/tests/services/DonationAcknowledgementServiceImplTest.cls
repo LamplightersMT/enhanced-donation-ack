@@ -14,7 +14,7 @@ private class DonationAcknowledgementServiceImplTest {
       StageName = 'Closed Won',
       CloseDate = Date.today(),
       Amount = 100,
-      ContactId = c.Id
+      npsp__Primary_Contact__c = c.Id
     );
     insert opp;
   }
@@ -66,29 +66,37 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testSendEmailsCoreWithResultReturnsMigratedFunctionality() {
-    // Inline creation of test opportunities for each scenario
+    // Inline creation of test opportunities for each scenario.
+    // NOTE: Opportunities are built and inserted in a single bulk DML statement
+    // rather than one insert per opportunity - NPSP's Primary Contact Role sync
+    // automation (triggered by npsp__Primary_Contact__c) can otherwise blow
+    // through the SOQL governor limit when several opportunities share a
+    // Contact/Account and are inserted one at a time in the same test method.
     String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
     Contact validContact = AcknowledgementTestUtils.createTestContact(
       'testuser_' + unique + '@example.com'
     );
     Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Already Acknowledged Opp',
       validContact,
       Date.today().addDays(-1),
       200
     );
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Success Opp',
       validContact,
       null,
       100
     );
-    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noContactOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Contact Opp',
       null,
       null,
       150
+    );
+    AcknowledgementTestUtils.insertTestOpportunities(
+      new List<Opportunity>{ acknowledgedOpp, successOpp, noContactOpp }
     );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ acknowledgedOpp.Id, successOpp.Id, noContactOpp.Id }
@@ -174,35 +182,45 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testSendEmailsCoreDetailedWithMixedScenarios() {
-    // Inline creation of test opportunities for each scenario
+    // Inline creation of test opportunities for each scenario.
+    // Bulk-inserted in one DML statement - see comment on
+    // testSendEmailsCoreWithResultReturnsMigratedFunctionality for why.
     String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
     Contact validContact = AcknowledgementTestUtils.createTestContact(
       'testuser_' + unique + '@example.com'
     );
     Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Success Opp',
       validContact,
       null,
       100
     );
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Already Acknowledged Opp',
       validContact,
       Date.today().addDays(-1),
       200
     );
-    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noContactOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Contact Opp',
       null,
       null,
       150
     );
-    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noEmailOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Email Opp',
       noEmailContact,
       null,
       75
+    );
+    AcknowledgementTestUtils.insertTestOpportunities(
+      new List<Opportunity>{
+        successOpp,
+        acknowledgedOpp,
+        noContactOpp,
+        noEmailOpp
+      }
     );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
@@ -250,7 +268,7 @@ private class DonationAcknowledgementServiceImplTest {
       StageName = 'Closed Won',
       CloseDate = Date.today(),
       Amount = 100
-      // No ContactId - makes it invalid for the service
+      // No npsp__Primary_Contact__c - makes it invalid for the service
     );
     insert invalidOpp;
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
@@ -267,16 +285,26 @@ private class DonationAcknowledgementServiceImplTest {
   @isTest
   static void testServiceBulkProcessing() {
     // Moved from testUpdateDatabaseBulkProcessing (DatabaseUpdateCommandTest)
-    // Verifies bulk processing of multiple opportunities
+    // Verifies bulk processing of multiple opportunities.
+    // Built and inserted in a single bulk DML statement - inserting 5
+    // opportunities for the same Contact one at a time in the same test method
+    // can blow through the SOQL governor limit due to NPSP's Primary Contact
+    // Role sync automation.
     Contact c = [SELECT Id FROM Contact LIMIT 1];
-    List<Id> oppIds = new List<Id>();
+    List<Opportunity> oppsToInsert = new List<Opportunity>();
     for (Integer i = 1; i <= 5; i++) {
-      Opportunity opp = AcknowledgementTestUtils.createTestOpportunity(
-        'Bulk Opp ' + i,
-        c,
-        null,
-        100 * i
+      oppsToInsert.add(
+        AcknowledgementTestUtils.buildTestOpportunity(
+          'Bulk Opp ' + i,
+          c,
+          null,
+          100 * i
+        )
       );
+    }
+    AcknowledgementTestUtils.insertTestOpportunities(oppsToInsert);
+    List<Id> oppIds = new List<Id>();
+    for (Opportunity opp : oppsToInsert) {
       oppIds.add(opp.Id);
     }
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
@@ -511,35 +539,45 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceMixedValidationScenarios() {
-    // Inline creation of test opportunities for each scenario
+    // Inline creation of test opportunities for each scenario.
+    // Bulk-inserted in one DML statement - see comment on
+    // testSendEmailsCoreWithResultReturnsMigratedFunctionality for why.
     String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
     Contact validContact = AcknowledgementTestUtils.createTestContact(
       'testuser_' + unique + '@example.com'
     );
     Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Success Opp',
       validContact,
       null,
       100
     );
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Already Acknowledged Opp',
       validContact,
       Date.today().addDays(-1),
       200
     );
-    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noContactOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Contact Opp',
       null,
       null,
       150
     );
-    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noEmailOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Email Opp',
       noEmailContact,
       null,
       75
+    );
+    AcknowledgementTestUtils.insertTestOpportunities(
+      new List<Opportunity>{
+        successOpp,
+        acknowledgedOpp,
+        noContactOpp,
+        noEmailOpp
+      }
     );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
@@ -559,35 +597,45 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceCommandIntegration() {
-    // Inline creation of test opportunities for each scenario
+    // Inline creation of test opportunities for each scenario.
+    // Bulk-inserted in one DML statement - see comment on
+    // testSendEmailsCoreWithResultReturnsMigratedFunctionality for why.
     String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
     Contact validContact = AcknowledgementTestUtils.createTestContact(
       'testuser_' + unique + '@example.com'
     );
     Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Success Opp',
       validContact,
       null,
       100
     );
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Already Acknowledged Opp',
       validContact,
       Date.today().addDays(-1),
       200
     );
-    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noContactOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Contact Opp',
       null,
       null,
       150
     );
-    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noEmailOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Email Opp',
       noEmailContact,
       null,
       75
+    );
+    AcknowledgementTestUtils.insertTestOpportunities(
+      new List<Opportunity>{
+        successOpp,
+        acknowledgedOpp,
+        noContactOpp,
+        noEmailOpp
+      }
     );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
@@ -614,6 +662,84 @@ private class DonationAcknowledgementServiceImplTest {
     AcknowledgementTestUtils.assertAcknowledgmentStatusSet(
       successOpp.Id,
       'Acknowledged'
+    );
+  }
+
+  @isTest
+  static void testSendEmailsCoreDetailedWithPartialSendFailure() {
+    // 3 opportunities, the send for the 2nd (index 1) fails - the other two
+    // should succeed and get their acknowledgment dates persisted; the failed
+    // one should not.
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity opp1 = AcknowledgementTestUtils.createTestOpportunity(
+      'Partial Opp 1',
+      c,
+      null,
+      100
+    );
+    Opportunity opp2 = AcknowledgementTestUtils.createTestOpportunity(
+      'Partial Opp 2',
+      c,
+      null,
+      100
+    );
+    Opportunity opp3 = AcknowledgementTestUtils.createTestOpportunity(
+      'Partial Opp 3',
+      c,
+      null,
+      100
+    );
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ opp1.Id, opp2.Id, opp3.Id }
+    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
+
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    MockEmailService mock = new MockEmailService();
+    mock.setPartialFailure(new List<Integer>{ 1 }, 'Mailbox unavailable');
+    service.emailService = mock;
+
+    Test.startTest();
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
+    Test.stopTest();
+
+    System.assertEquals(3, result.totalOpportunities, 'Should total 3');
+    System.assertEquals(2, result.emailsSent, 'Should have 2 successes');
+    System.assertEquals(1, result.emailSendFailures, 'Should have 1 failure');
+    System.assertEquals(0, result.ackUpdateFailures, 'No DB failures expected');
+
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+      result.opportunityResults
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Partial Opp 1',
+      AckStatus.SUCCESS,
+      'Email sent successfully'
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Partial Opp 2',
+      AckStatus.EMAIL_SEND_FAILED,
+      'Mailbox unavailable'
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Partial Opp 3',
+      AckStatus.SUCCESS,
+      'Email sent successfully'
+    );
+
+    // Verify the database was updated ONLY for the 2 opportunities whose email sent
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp1.Id);
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp3.Id);
+    Opportunity updatedOpp2 = AcknowledgementTestUtils.queryOpportunityWithAckDate(
+      opp2.Id
+    );
+    System.assertEquals(
+      null,
+      updatedOpp2.npsp__Acknowledgment_Date__c,
+      'Failed send should not update acknowledgment date'
     );
   }
 }

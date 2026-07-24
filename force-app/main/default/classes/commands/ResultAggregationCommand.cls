@@ -24,21 +24,18 @@ public with sharing class ResultAggregationCommand implements IAcknowledgementCo
   }
 
   /**
-   * Execute result aggregation
+   * Execute result aggregation.
+   * Adds ALL results unconditionally - both successes and failures. By this point
+   * each AckOpportunityResult's status is already final (EmailSendCommand and, if it
+   * ran, DatabaseUpdateCommand have already mutated status in place), so there is no
+   * need to branch on an overall success flag here.
    */
   public void execute() {
-    // Add successful opportunities to result
-    if (sendOutput.isSuccess) {
-      for (
-        AckOpportunityResult oppResult : sendOutput.successfulOpportunities
-      ) {
-        result.addOpportunityResult(oppResult);
-      }
-    } else {
-      // Add failed opportunities to result
-      for (AckOpportunityResult oppResult : sendOutput.failedOpportunities) {
-        result.addOpportunityResult(oppResult);
-      }
+    for (AckOpportunityResult oppResult : sendOutput.successfulOpportunities) {
+      result.addOpportunityResult(oppResult);
+    }
+    for (AckOpportunityResult oppResult : sendOutput.failedOpportunities) {
+      result.addOpportunityResult(oppResult);
     }
 
     // Set email type metadata

@@ -24,8 +24,8 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
     // Bulk query for all Contacts related to the Opportunities
     Set<Id> contactIds = new Set<Id>();
     for (Opportunity opp : opportunities) {
-      if (opp.ContactId != null) {
-        contactIds.add(opp.ContactId);
+      if (opp.npsp__Primary_Contact__c != null) {
+        contactIds.add(opp.npsp__Primary_Contact__c);
       }
     }
     Map<Id, Contact> contactMap = new Map<Id, Contact>(
@@ -56,7 +56,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
       }
 
       // Check if has contact
-      if (opp.ContactId == null) {
+      if (opp.npsp__Primary_Contact__c == null) {
         oppResult.setStatus(
           AckStatus.NO_CONTACT,
           'Opportunity has no associated Contact'
@@ -64,12 +64,12 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
         result.addOpportunityResult(oppResult);
         System.debug(
           LoggingLevel.WARN,
-          'Opportunity ' + opp.Id + ' has no ContactId.'
+          'Opportunity ' + opp.Id + ' has no npsp__Primary_Contact__c.'
         );
         continue;
       }
 
-      Contact contact = contactMap.get(opp.ContactId);
+      Contact contact = contactMap.get(opp.npsp__Primary_Contact__c);
       if (contact == null) {
         oppResult.setStatus(AckStatus.NO_CONTACT, 'Contact not found');
         result.addOpportunityResult(oppResult);

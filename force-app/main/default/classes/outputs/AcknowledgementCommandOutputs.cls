@@ -19,59 +19,53 @@ public with sharing class AcknowledgementCommandOutputs {
   }
 
   /**
-   * Output from email sending command
+   * Output from email sending command.
+   * Both lists may be non-empty at once - a batch of emails can have some
+   * messages succeed and others fail. There is no overall isSuccess flag;
+   * callers should inspect the two lists directly.
    */
   public class SendOutput {
-    public Boolean isSuccess;
-    public String errorMessage;
     public List<AckOpportunityResult> successfulOpportunities;
     public List<AckOpportunityResult> failedOpportunities;
 
     public SendOutput() {
-      this.isSuccess = false;
       this.successfulOpportunities = new List<AckOpportunityResult>();
       this.failedOpportunities = new List<AckOpportunityResult>();
     }
 
-    public SendOutput setSuccess(List<AckOpportunityResult> successfulOpps) {
-      this.isSuccess = true;
-      this.successfulOpportunities = successfulOpps;
-      return this;
-    }
-
-    public SendOutput setFailure(
-      String errorMessage,
+    /**
+     * Single completion setter - populates both lists directly.
+     */
+    public SendOutput setResults(
+      List<AckOpportunityResult> successfulOpps,
       List<AckOpportunityResult> failedOpps
     ) {
-      this.isSuccess = false;
-      this.errorMessage = errorMessage;
+      this.successfulOpportunities = successfulOpps;
       this.failedOpportunities = failedOpps;
       return this;
     }
   }
 
   /**
-   * Output from database update command
+   * Output from database update command.
+   * recordsFailed counts opportunities whose email sent successfully but whose
+   * DML update failed (see AckStatus.ACK_UPDATE_FAILED).
    */
   public class UpdateOutput {
-    public Boolean isSuccess;
-    public String errorMessage;
     public Integer recordsUpdated;
+    public Integer recordsFailed;
 
     public UpdateOutput() {
-      this.isSuccess = false;
       this.recordsUpdated = 0;
+      this.recordsFailed = 0;
     }
 
-    public UpdateOutput setSuccess(Integer recordsUpdated) {
-      this.isSuccess = true;
+    public UpdateOutput setCounts(
+      Integer recordsUpdated,
+      Integer recordsFailed
+    ) {
       this.recordsUpdated = recordsUpdated;
-      return this;
-    }
-
-    public UpdateOutput setFailure(String errorMessage) {
-      this.isSuccess = false;
-      this.errorMessage = errorMessage;
+      this.recordsFailed = recordsFailed;
       return this;
     }
   }

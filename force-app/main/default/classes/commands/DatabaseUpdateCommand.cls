@@ -1,6 +1,11 @@
 /**
- * Command to update opportunity acknowledgment dates in the database
- * Returns UpdateOutput with update status
+ * Command to update opportunity acknowledgment dates in the database.
+ * Uses partial-success DML (Database.update with allOrNothing=false) so that a
+ * DML failure on one record doesn't block the rest. A record whose email sent
+ * successfully but whose DB update failed is marked ACK_UPDATE_FAILED rather
+ * than being silently dropped - the email already went out, so this needs
+ * manual attention to avoid a duplicate acknowledgement email later.
+ * Returns UpdateOutput with update counts.
  */
 public with sharing class DatabaseUpdateCommand implements IAcknowledgementCommand {
   private List<AckOpportunityResult> successfulOpportunities;
@@ -19,76 +24,73 @@ public with sharing class DatabaseUpdateCommand implements IAcknowledgementComma
   public void execute() {
     if (successfulOpportunities.isEmpty()) {
       updateOutput = new AcknowledgementCommandOutputs.UpdateOutput()
-        .setSuccess(0);
+        .setCounts(0, 0);
       return;
     }
 
-    try {
-      List<Opportunity> oppsToUpdate = new List<Opportunity>();
-
-      for (AckOpportunityResult oppResult : successfulOpportunities) {
-        oppsToUpdate.add(
-          new Opportunity(
-            Id = oppResult.opportunityId,
-            npsp__Acknowledgment_Date__c = oppResult.acknowledgmentDate,
-            npsp__Acknowledgment_Status__c = 'Acknowledged' // New field update
-          )
-        );
-      }
-
-      update oppsToUpdate;
-      updateOutput = new AcknowledgementCommandOutputs.UpdateOutput()
-        .setSuccess(oppsToUpdate.size());
-    } catch (DmlException de) {
-      System.debug(
-        LoggingLevel.ERROR,
-        'Database update failed: ' + de.getMessage()
-      );
-
-      // Mark all opportunities as failed due to database update failure
-      for (AckOpportunityResult oppResult : successfulOpportunities) {
-        oppResult.setStatus(
-          AckStatus.EMAIL_SEND_FAILED,
-          'Database update failed: ' + de.getMessage()
-        );
-      }
-
-      updateOutput = new AcknowledgementCommandOutputs.UpdateOutput()
-        .setFailure(
-          'Failed to update acknowledgement dates: ' + de.getMessage()
-        );
-
-      throw new AuraHandledException(
-        'Failed to update acknowledgement dates: ' + de.getMessage()
-      );
-    } catch (Exception e) {
-      System.debug(
-        LoggingLevel.ERROR,
-        'Unexpected error during database update: ' + e.getMessage()
-      );
-
-      // Mark all opportunities as failed due to unexpected error
-      for (AckOpportunityResult oppResult : successfulOpportunities) {
-        oppResult.setStatus(
-          AckStatus.EMAIL_SEND_FAILED,
-          'Database update error: ' + e.getMessage()
-        );
-      }
-
-      updateOutput = new AcknowledgementCommandOutputs.UpdateOutput()
-        .setFailure(
-          'Failed to update acknowledgement dates: ' + e.getMessage()
-        );
-
-      throw new AuraHandledException(
-        'Failed to update acknowledgement dates: ' + e.getMessage()
+    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+    for (AckOpportunityResult oppResult : successfulOpportunities) {
+      oppsToUpdate.add(
+        new Opportunity(
+          Id = oppResult.opportunityId,
+          npsp__Acknowledgment_Date__c = oppResult.acknowledgmentDate,
+          npsp__Acknowledgment_Status__c = 'Acknowledged'
+        )
       );
     }
+
+    List<Database.SaveResult> saveResults = Database.update(
+      oppsToUpdate,
+      false
+    );
+
+    Integer updatedCount = 0;
+    Integer failedCount = 0;
+
+    for (Integer i = 0; i < successfulOpportunities.size(); i++) {
+      AckOpportunityResult oppResult = successfulOpportunities[i];
+      Database.SaveResult saveResult = i < saveResults.size()
+        ? saveResults[i]
+        : null;
+
+      if (saveResult != null && saveResult.isSuccess()) {
+        updatedCount++;
+      } else {
+        failedCount++;
+        List<String> errors = new List<String>();
+        if (saveResult != null) {
+          for (Database.Error err : saveResult.getErrors()) {
+            errors.add(err.getMessage());
+          }
+        }
+        String errorText = errors.isEmpty()
+          ? 'Unknown error'
+          : String.join(errors, '; ');
+
+        System.debug(
+          LoggingLevel.ERROR,
+          'Database update failed for Opportunity ' +
+            oppResult.opportunityId +
+            ': ' +
+            errorText
+        );
+
+        oppResult.setStatus(
+          AckStatus.ACK_UPDATE_FAILED,
+          'Email was sent, but record update failed: ' +
+            errorText +
+            '. Record needs manual attention to prevent duplicate acknowledgement.'
+        );
+      }
+    }
+
+    updateOutput = new AcknowledgementCommandOutputs.UpdateOutput()
+      .setCounts(updatedCount, failedCount);
   }
 
   /**
    * Get the database update output
-   * @return UpdateOutput with update status
+   * @return UpdateOutput with update counts
    */
   public AcknowledgementCommandOutputs.UpdateOutput getOutput() {
     return updateOutput;
