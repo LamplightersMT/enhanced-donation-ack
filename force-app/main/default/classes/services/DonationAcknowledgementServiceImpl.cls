@@ -10,15 +10,35 @@
  * Supports dependency injection through mutable instance variables:
  * - donationAckTemplateDevName: Template developer name for email templates
  * - donationAckTemplateFolder: Folder developer name for email templates
+ * - orgWideEmailAddress: Optional org-wide email address override
  * - emailService: Email service implementation for sending emails
  * - orgWideEmailService: Org-wide email address lookup implementation
+ *
+ * Configuration (template dev name/folder, org-wide address) is admin-editable via
+ * the Ack_Setting__mdt Custom Metadata Type - see loadAckSettingConfig(). The active
+ * record's values (if any) are loaded once per instance, in the constructor, into the
+ * hardcoded defaults above. Tests cannot insert Custom Metadata records, so tests that
+ * need a different configuration continue to override these fields directly after
+ * construction - loadAckSettingConfig() runs before any such override, so it never
+ * clobbers a test's explicit assignment.
  */
 public with sharing class DonationAcknowledgementServiceImpl {
-  // Instance variables for template configuration with default values
+  // Instance variables for template configuration with default values. These defaults
+  // match the shipped Ack_Setting.Default Custom Metadata record, so behavior is
+  // unchanged for orgs that deploy it as-is.
   @TestVisible
   public String donationAckTemplateDevName = 'HTML_Donation_Acknowledgement';
   @TestVisible
   public String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
+  // Optional org-wide email address (as an Address string) to send from. Blank means
+  // "use the org's Default No-Reply Address" - see getDefaultOrgWideEmailAddressId().
+  @TestVisible
+  public String orgWideEmailAddress = '';
+
+  // Tracks whether loadAckSettingConfig() has already run for this instance, so the
+  // Ack_Setting__mdt query only ever happens once per instance.
+  @TestVisible
+  private Boolean ackSettingConfigLoaded = false;
 
   // Mutable instance variables for dependency injection
   @TestVisible
@@ -27,10 +47,53 @@ public with sharing class DonationAcknowledgementServiceImpl {
   public IOrgWideEmailService orgWideEmailService = new OrgWideEmailService();
 
   /**
-   * Default constructor initializes instance variables with default values
+   * Default constructor initializes instance variables with default values, then loads
+   * the active Ack_Setting__mdt record (if any) to override them.
    */
   public DonationAcknowledgementServiceImpl() {
-    // Instance variables are initialized with defaults above
+    loadAckSettingConfig();
+  }
+
+  /**
+   * Loads the active Ack_Setting__mdt record (Active__c = true) into this instance's
+   * configuration fields, once per instance. Custom Metadata records are visible in
+   * Apex tests without SeeAllData, so the shipped Ack_Setting.Default record is picked
+   * up in tests too - but since its values match the hardcoded defaults above, this is
+   * not observable. Blank fields on the CMT record are treated as "not configured" and
+   * leave the corresponding default in place. If no active record exists, the hardcoded
+   * defaults are kept as-is.
+   */
+  @TestVisible
+  private void loadAckSettingConfig() {
+    if (ackSettingConfigLoaded) {
+      return;
+    }
+    ackSettingConfigLoaded = true;
+
+    List<Ack_Setting__mdt> settings = [
+      SELECT
+        Template_DeveloperName__c,
+        Template_Folder__c,
+        Org_Wide_Email_Address__c
+      FROM Ack_Setting__mdt
+      WHERE Active__c = TRUE
+      LIMIT 1
+    ];
+
+    if (settings.isEmpty()) {
+      return;
+    }
+
+    Ack_Setting__mdt activeSetting = settings[0];
+    if (String.isNotBlank(activeSetting.Template_DeveloperName__c)) {
+      donationAckTemplateDevName = activeSetting.Template_DeveloperName__c;
+    }
+    if (String.isNotBlank(activeSetting.Template_Folder__c)) {
+      donationAckTemplateFolder = activeSetting.Template_Folder__c;
+    }
+    if (String.isNotBlank(activeSetting.Org_Wide_Email_Address__c)) {
+      orgWideEmailAddress = activeSetting.Org_Wide_Email_Address__c;
+    }
   }
 
   /**
@@ -90,6 +153,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
     flowResult.noValidContact = detailedResult.noValidContact;
     flowResult.emailSendFailures = detailedResult.emailSendFailures;
     flowResult.ackUpdateFailures = detailedResult.ackUpdateFailures;
+    flowResult.configErrors = detailedResult.configErrors;
     flowResult.emailType = detailedResult.emailType;
     flowResult.summaryMessage = detailedResult.buildSummaryMessage();
 
@@ -127,10 +191,41 @@ public with sharing class DonationAcknowledgementServiceImpl {
       emptyResult.emailType = 'No opportunities provided';
       return emptyResult;
     }
-    AckDetailedResult result;
     AckEmailConfig config = getEmailConfiguration();
-    result = sendEmailsCoreDetailed(opps, config);
+    if (config == null) {
+      // Hard error: the configured template could not be found. No emails are sent
+      // and nothing is thrown - every requested opportunity is reported as
+      // CONFIG_ERROR so callers (Flow, LWC) can surface it without a broken run.
+      return buildConfigErrorResult(opps);
+    }
+    AckDetailedResult result = sendEmailsCoreDetailed(opps, config);
     result.emailType = config.emailType;
+    return result;
+  }
+
+  /**
+   * Build a result reporting every one of the given opportunities as CONFIG_ERROR.
+   * Used when the configured email template cannot be found - no emails are prepared
+   * or sent and no opportunities are updated.
+   */
+  private AckDetailedResult buildConfigErrorResult(List<Opportunity> opps) {
+    String reason =
+      'Email template ' +
+      donationAckTemplateDevName +
+      ' not found in folder ' +
+      donationAckTemplateFolder +
+      ' - no emails were sent. Check the Ack_Setting configuration.';
+
+    AckDetailedResult result = new AckDetailedResult();
+    for (Opportunity opp : opps) {
+      AckOpportunityResult oppResult = new AckOpportunityResult(
+        opp.Id,
+        opp.Name
+      );
+      oppResult.setStatus(AckStatus.CONFIG_ERROR, reason);
+      result.addOpportunityResult(oppResult);
+    }
+    result.emailType = 'Configuration error';
     return result;
   }
 
@@ -389,12 +484,31 @@ public with sharing class DonationAcknowledgementServiceImpl {
   }
 
   /**
-   * Helper to get the org-wide email address Id set as the organization's Default No-Reply Address.
-   * Returns null if none is configured as default.
+   * Helper to get the org-wide email address Id to send from. If orgWideEmailAddress is
+   * configured (non-blank, e.g. via Ack_Setting__mdt.Org_Wide_Email_Address__c), looks it
+   * up by address and uses it; if that lookup finds nothing, logs a WARN and falls back
+   * to the organization's Default No-Reply Address. If orgWideEmailAddress is blank,
+   * goes straight to the Default No-Reply Address. Returns null if no address can be
+   * resolved either way.
    * See: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm
    */
   @TestVisible
   private Id getDefaultOrgWideEmailAddressId() {
+    if (String.isNotBlank(orgWideEmailAddress)) {
+      OrgWideEmailAddress configured = orgWideEmailService.getByAddress(
+        orgWideEmailAddress
+      );
+      if (configured != null) {
+        return configured.Id;
+      }
+      System.debug(
+        LoggingLevel.WARN,
+        'Configured Org_Wide_Email_Address__c \'' +
+          orgWideEmailAddress +
+          '\' was not found as an OrgWideEmailAddress. Falling back to the Default No-Reply Address.'
+      );
+    }
+
     OrgWideEmailAddress defaultNoReply = orgWideEmailService.getDefaultNoReplyAddress();
     if (defaultNoReply == null) {
       System.debug(
@@ -407,8 +521,10 @@ public with sharing class DonationAcknowledgementServiceImpl {
   }
 
   /**
-   * Get email configuration with proper exception handling for template lookup
-   * @return EmailConfig configured with template or static fallback
+   * Get email configuration for the configured template.
+   * @return AckEmailConfig configured with the template, or null if the configured
+   * template could not be found (or the lookup failed unexpectedly) - callers must
+   * treat null as a hard configuration error, not fall back to any other content.
    */
   private AckEmailConfig getEmailConfiguration() {
     try {
@@ -428,25 +544,13 @@ public with sharing class DonationAcknowledgementServiceImpl {
         LoggingLevel.WARN,
         'EmailTemplate not found: ' + qe.getMessage()
       );
-      return getStaticEmailConfiguration();
+      return null;
     } catch (System.Exception ex) {
       System.debug(
         LoggingLevel.ERROR,
         'Unexpected error accessing EmailTemplate: ' + ex.getMessage()
       );
-      return getStaticEmailConfiguration();
+      return null;
     }
-  }
-
-  /**
-   * Get static email configuration as fallback
-   * @return EmailConfig with static content
-   */
-  private AckEmailConfig getStaticEmailConfiguration() {
-    String subject = 'Thank you for your donation!';
-    String body = 'We appreciate your generous support.';
-    AckEmailConfig config = new AckEmailConfig(subject, body);
-    config.emailType = 'Static content fallback';
-    return config;
   }
 }

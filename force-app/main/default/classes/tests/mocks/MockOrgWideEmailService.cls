@@ -3,7 +3,10 @@
  */
 public class MockOrgWideEmailService implements IOrgWideEmailService {
   private OrgWideEmailAddress mockAddress;
+  private OrgWideEmailAddress mockAddressByAddress;
   private Integer callCount = 0;
+  private Integer getByAddressCallCount = 0;
+  private String lastRequestedAddress;
 
   public MockOrgWideEmailService(OrgWideEmailAddress address) {
     this.mockAddress = address;
@@ -20,9 +23,22 @@ public class MockOrgWideEmailService implements IOrgWideEmailService {
     this.mockAddress = null;
     return this;
   }
+  /**
+   * Configure the value returned by getByAddress(). Pass null to simulate no
+   * OrgWideEmailAddress matching the configured address.
+   */
+  public MockOrgWideEmailService setAddressByAddressResult(
+    OrgWideEmailAddress address
+  ) {
+    this.mockAddressByAddress = address;
+    return this;
+  }
   public MockOrgWideEmailService reset() {
     this.mockAddress = null;
+    this.mockAddressByAddress = null;
     this.callCount = 0;
+    this.getByAddressCallCount = 0;
+    this.lastRequestedAddress = null;
     return this;
   }
 
@@ -30,6 +46,12 @@ public class MockOrgWideEmailService implements IOrgWideEmailService {
   public OrgWideEmailAddress getDefaultNoReplyAddress() {
     callCount++;
     return mockAddress;
+  }
+
+  public OrgWideEmailAddress getByAddress(String address) {
+    getByAddressCallCount++;
+    lastRequestedAddress = address;
+    return mockAddressByAddress;
   }
 
   // Verification methods
@@ -45,5 +67,11 @@ public class MockOrgWideEmailService implements IOrgWideEmailService {
   }
   public Integer getCallCount() {
     return callCount;
+  }
+  public Integer getByAddressCallCount() {
+    return getByAddressCallCount;
+  }
+  public String getLastRequestedAddress() {
+    return lastRequestedAddress;
   }
 }

@@ -189,4 +189,129 @@ describe("c-acknowledge-donation-button", () => {
     expect(toastEvent.detail.variant).toBe("success");
     expect(toastEvent.detail.message).not.toContain("record update failed");
   });
+
+  it("shows an error toast titled Configuration Error when the template is missing", async () => {
+    const configErrorReason =
+      "Email template HTML_Donation_Acknowledgement not found in folder EnhancedDonationAcknowledgements - no emails were sent. Check the Ack_Setting configuration.";
+    const mockDetailedResult = {
+      totalOpportunities: 1,
+      emailsSent: 0,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 0,
+      configErrors: 1,
+      opportunityResults: [
+        {
+          opportunityId: "006000000000001AAA",
+          status: "CONFIG_ERROR",
+          reason: configErrorReason
+        }
+      ]
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("error");
+    expect(toastEvent.detail.title).toBe("Configuration Error");
+    expect(toastEvent.detail.message).toBe(configErrorReason);
+  });
+
+  it("shows the Configuration Error toast even when emails were also sent, outranking the success variant", async () => {
+    // Defensive: in practice a config error means 0 emails are ever sent (it's an
+    // all-or-nothing short-circuit), but the toast logic must not depend on that -
+    // configErrors > 0 must always win.
+    const mockDetailedResult = {
+      totalOpportunities: 2,
+      emailsSent: 1,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 0,
+      configErrors: 1,
+      opportunityResults: [
+        {
+          opportunityId: "006000000000001AAA",
+          status: "SUCCESS",
+          reason: "Email sent successfully"
+        },
+        {
+          opportunityId: "006000000000002AAA",
+          status: "CONFIG_ERROR",
+          reason:
+            "Email template Foo not found in folder Bar - no emails were sent. Check the Ack_Setting configuration."
+        }
+      ]
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.selectedRecordIds = ["006000000000001AAA", "006000000000002AAA"];
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("error");
+    expect(toastEvent.detail.title).toBe("Configuration Error");
+  });
+
+  it("falls back to the generic message when no CONFIG_ERROR opportunity detail is present", async () => {
+    const mockDetailedResult = {
+      totalOpportunities: 1,
+      emailsSent: 0,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 0,
+      configErrors: 1
+      // opportunityResults intentionally omitted
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("error");
+    expect(toastEvent.detail.title).toBe("Configuration Error");
+    expect(toastEvent.detail.message).toContain("configuration error");
+  });
 });

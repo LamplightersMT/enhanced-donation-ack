@@ -484,6 +484,153 @@ private class DonationAcknowledgementServiceImplTest {
   }
 
   @isTest
+  static void testGetDefaultOrgWideEmailAddressIdUsesConfiguredAddressWhenPresent() {
+    // When orgWideEmailAddress is configured (e.g. via Ack_Setting__mdt), the
+    // configured address should be looked up and used instead of the org's Default
+    // No-Reply Address.
+    OrgWideEmailAddress configuredAddress = new OrgWideEmailAddress();
+    configuredAddress.Id = '0D2000000000002AAA';
+    configuredAddress.Address = 'acks@example.com';
+    MockOrgWideEmailService mockService = new MockOrgWideEmailService(null);
+    mockService.setAddressByAddressResult(configuredAddress);
+
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    service.orgWideEmailService = mockService;
+    service.orgWideEmailAddress = 'acks@example.com';
+
+    Test.startTest();
+    Id result = service.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      configuredAddress.Id,
+      result,
+      'Should use the configured org-wide address'
+    );
+    System.assertEquals(
+      1,
+      mockService.getByAddressCallCount(),
+      'Should look up the configured address'
+    );
+    System.assertEquals(
+      0,
+      mockService.getCallCount(),
+      'Should not need the default no-reply lookup when the configured address is found'
+    );
+  }
+
+  @isTest
+  static void testGetDefaultOrgWideEmailAddressIdFallsBackWhenConfiguredAddressNotFound() {
+    // When orgWideEmailAddress is configured but doesn't match any
+    // OrgWideEmailAddress, fall back to the Default No-Reply Address rather than
+    // sending with no org-wide address at all.
+    OrgWideEmailAddress defaultAddress = new OrgWideEmailAddress();
+    defaultAddress.Id = '0D2000000000003AAA';
+    defaultAddress.Purpose = 'DefaultNoReply';
+    MockOrgWideEmailService mockService = new MockOrgWideEmailService(
+      defaultAddress
+    );
+    mockService.setAddressByAddressResult(null);
+
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    service.orgWideEmailService = mockService;
+    service.orgWideEmailAddress = 'does-not-exist@example.com';
+
+    Test.startTest();
+    Id result = service.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      defaultAddress.Id,
+      result,
+      'Should fall back to the Default No-Reply Address'
+    );
+    System.assertEquals(
+      1,
+      mockService.getByAddressCallCount(),
+      'Should have attempted the configured address lookup'
+    );
+    System.assertEquals(
+      1,
+      mockService.getCallCount(),
+      'Should fall back to the default no-reply lookup'
+    );
+  }
+
+  @isTest
+  static void testGetDefaultOrgWideEmailAddressIdSkipsConfiguredLookupWhenBlank() {
+    // When orgWideEmailAddress is blank (the default), go straight to the default
+    // no-reply lookup without calling getByAddress at all.
+    OrgWideEmailAddress defaultAddress = new OrgWideEmailAddress();
+    defaultAddress.Id = '0D2000000000004AAA';
+    defaultAddress.Purpose = 'DefaultNoReply';
+    MockOrgWideEmailService mockService = new MockOrgWideEmailService(
+      defaultAddress
+    );
+
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    service.orgWideEmailService = mockService;
+    service.orgWideEmailAddress = '';
+
+    Test.startTest();
+    Id result = service.getDefaultOrgWideEmailAddressId();
+    Test.stopTest();
+
+    System.assertEquals(
+      defaultAddress.Id,
+      result,
+      'Should use the Default No-Reply Address'
+    );
+    System.assertEquals(
+      0,
+      mockService.getByAddressCallCount(),
+      'Should not call getByAddress when orgWideEmailAddress is blank'
+    );
+  }
+
+  @isTest
+  static void testLoadAckSettingConfigOnlyRunsOncePerInstance() {
+    // loadAckSettingConfig() must query Ack_Setting__mdt at most once per instance -
+    // calling it again (as the constructor already did) should be a no-op.
+    DonationAcknowledgementServiceImpl service = new DonationAcknowledgementServiceImpl();
+    String devNameAfterConstruction = service.donationAckTemplateDevName;
+    String folderAfterConstruction = service.donationAckTemplateFolder;
+
+    // Simulate a test overriding the fields directly after construction, as the
+    // existing field-override pattern does.
+    service.donationAckTemplateDevName = 'OverriddenTemplate';
+    service.donationAckTemplateFolder = 'OverriddenFolder';
+
+    Test.startTest();
+    service.loadAckSettingConfig();
+    Test.stopTest();
+
+    System.assertEquals(
+      'OverriddenTemplate',
+      service.donationAckTemplateDevName,
+      'A second call to loadAckSettingConfig() must not overwrite a manual override'
+    );
+    System.assertEquals(
+      'OverriddenFolder',
+      service.donationAckTemplateFolder,
+      'A second call to loadAckSettingConfig() must not overwrite a manual override'
+    );
+    // Sanity check that construction itself did populate defaults (either from the
+    // shipped Ack_Setting.Default CMT record or the hardcoded fallback - both are
+    // 'HTML_Donation_Acknowledgement' / 'EnhancedDonationAcknowledgements').
+    System.assertEquals(
+      'HTML_Donation_Acknowledgement',
+      devNameAfterConstruction,
+      'Should have a template dev name after construction'
+    );
+    System.assertEquals(
+      'EnhancedDonationAcknowledgements',
+      folderAfterConstruction,
+      'Should have a template folder after construction'
+    );
+  }
+
+  @isTest
   static void testAckUpdateFailedWhenDatabaseUpdateFails() {
     // Exercises the full pipeline: two opportunities pass validation and their emails
     // send successfully, but one of the underlying Opportunity records is deleted out

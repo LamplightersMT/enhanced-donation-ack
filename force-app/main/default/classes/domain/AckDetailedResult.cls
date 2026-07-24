@@ -13,6 +13,8 @@ public with sharing class AckDetailedResult {
   @AuraEnabled
   public Integer ackUpdateFailures;
   @AuraEnabled
+  public Integer configErrors;
+  @AuraEnabled
   public List<AckOpportunityResult> opportunityResults;
   @AuraEnabled
   public String emailType;
@@ -24,6 +26,7 @@ public with sharing class AckDetailedResult {
     this.noValidContact = 0;
     this.emailSendFailures = 0;
     this.ackUpdateFailures = 0;
+    this.configErrors = 0;
     this.opportunityResults = new List<AckOpportunityResult>();
   }
 
@@ -47,6 +50,8 @@ public with sharing class AckDetailedResult {
       this.noValidContact++;
     } else if (oppResult.status == AckStatus.EMAIL_SEND_FAILED) {
       this.emailSendFailures++;
+    } else if (oppResult.status == AckStatus.CONFIG_ERROR) {
+      this.configErrors++;
     }
   }
 
@@ -71,6 +76,10 @@ public with sharing class AckDetailedResult {
 
     if (ackUpdateFailures > 0) {
       message += ', Sent but record update failed: ' + ackUpdateFailures;
+    }
+
+    if (configErrors > 0) {
+      message += ', Configuration errors: ' + configErrors;
     }
 
     if (emailType != null) {

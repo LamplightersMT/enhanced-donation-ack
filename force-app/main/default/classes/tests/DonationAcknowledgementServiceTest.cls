@@ -65,8 +65,10 @@ private class DonationAcknowledgementServiceTest {
   }
 
   @isTest
-  static void testSendAcknowledgementsStaticFallback() {
-    // Instance-based injection setup with fallback config
+  static void testSendAcknowledgementsConfigErrorWhenTemplateMissing() {
+    // When the configured template cannot be found, this is a hard configuration
+    // error: no emails are sent, nothing is updated, and every requested opportunity
+    // is reported as CONFIG_ERROR - there is no more silent static-content fallback.
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     service.donationAckTemplateDevName = 'DoesNotExistTemplate';
     service.donationAckTemplateFolder = 'DoesNotExistFolder';
@@ -82,17 +84,44 @@ private class DonationAcknowledgementServiceTest {
       );
       Test.stopTest();
       System.assertEquals(1, result.size());
-      System.assertEquals(1, result[0].emailsSent);
-      System.assertEquals(1, result[0].totalOpportunities);
-      System.assert(
-        result[0].summaryMessage.contains('Static content fallback')
+      System.assertEquals(
+        0,
+        result[0].emailsSent,
+        'No emails should be sent when the configured template is missing'
       );
-      // Verify acknowledgement date is set
-      AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
-      // Verify acknowledgment status is set
-      AcknowledgementTestUtils.assertAcknowledgmentStatusSet(
-        opp.Id,
-        'Acknowledged'
+      System.assertEquals(1, result[0].totalOpportunities);
+      System.assertEquals(
+        1,
+        result[0].configErrors,
+        'Should report 1 configuration error'
+      );
+      System.assert(
+        result[0].summaryMessage.contains('Configuration errors: 1'),
+        'Summary should mention the configuration error: ' +
+        result[0].summaryMessage
+      );
+      System.assertEquals(
+        1,
+        result[0].opportunityDetails.size(),
+        'Should have 1 opportunity detail'
+      );
+      System.assertEquals(
+        String.valueOf(AckStatus.CONFIG_ERROR),
+        result[0].opportunityDetails[0].status,
+        'Opportunity should be reported as CONFIG_ERROR'
+      );
+      System.assert(
+        result[0].opportunityDetails[0].reason.contains('not found in folder'),
+        'Reason should explain the missing template'
+      );
+      // Verify acknowledgement date is NOT set - nothing was sent or updated
+      Opportunity updatedOpp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
+        opp.Id
+      );
+      System.assertEquals(
+        null,
+        updatedOpp.npsp__Acknowledgment_Date__c,
+        'Acknowledgment date should not be set when configuration errors out'
       );
     } finally {
       AcknowledgementTestUtils.resetServiceInstance();
@@ -466,6 +495,7 @@ private class DonationAcknowledgementServiceTest {
     System.assertNotEquals(null, AckStatus.EMAIL_SEND_FAILED);
     System.assertNotEquals(null, AckStatus.INVALID_OPPORTUNITY);
     System.assertNotEquals(null, AckStatus.ACK_UPDATE_FAILED);
+    System.assertNotEquals(null, AckStatus.CONFIG_ERROR);
   }
 
   @isTest
@@ -529,8 +559,9 @@ private class DonationAcknowledgementServiceTest {
   }
 
   @isTest
-  static void testSendAcknowledgementsDetailedStaticFallback() {
-    // Test the detailed method with static content fallback
+  static void testSendAcknowledgementsDetailedConfigErrorWhenTemplateMissing() {
+    // Test the detailed method's hard-error behavior when the configured template
+    // cannot be found - no more silent fallback to static content.
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     service.donationAckTemplateDevName = 'DoesNotExistTemplate';
     service.donationAckTemplateFolder = 'DoesNotExistFolder';
@@ -545,18 +576,23 @@ private class DonationAcknowledgementServiceTest {
       );
       Test.stopTest();
 
-      // Verify fallback to static content
+      // Verify hard error: nothing sent, one configuration error
       AcknowledgementTestUtils.assertDetailedResultCounts(
         result,
         1,
-        1,
+        0,
         0,
         0,
         0
       );
+      System.assertEquals(
+        1,
+        result.configErrors,
+        'Should report 1 configuration error'
+      );
       System.assert(
-        result.emailType.contains('Static content fallback'),
-        'Should indicate static fallback'
+        result.emailType.contains('Configuration error'),
+        'Should indicate a configuration error'
       );
 
       // Verify individual opportunity result
@@ -567,9 +603,27 @@ private class DonationAcknowledgementServiceTest {
       );
       AckOpportunityResult oppResult = result.opportunityResults[0];
       System.assertEquals(
-        AckStatus.SUCCESS,
+        AckStatus.CONFIG_ERROR,
         oppResult.status,
-        'Should be successful'
+        'Should be a configuration error'
+      );
+      System.assert(
+        oppResult.isFailed(),
+        'CONFIG_ERROR should be considered a failure'
+      );
+      System.assert(
+        oppResult.reason.contains('not found in folder'),
+        'Reason should explain the missing template'
+      );
+
+      // Verify nothing was updated in the database
+      Opportunity updatedOpp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
+        opp.Id
+      );
+      System.assertEquals(
+        null,
+        updatedOpp.npsp__Acknowledgment_Date__c,
+        'Acknowledgment date should not be set when configuration errors out'
       );
     } finally {
       AcknowledgementTestUtils.resetServiceInstance();
