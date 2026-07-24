@@ -22,11 +22,37 @@ This Salesforce project automates email acknowledgements for donations, similar 
    1. Add "Acknowledge Donations" button to `List View Buttons Layout > Opportunities List View`
    1. In `Opportunity > Lightning Record Pages > NPSP Opportunity Record Page`, add an "Activities" panel
 1. Configure a default org-wide email address in `Setup > Email > Organization-Wide Addresses`
-   - This must be the Default No-Reply Address for your organization
-   - If no Default No-Reply Address is set, it will fall back to the individual user
+   - This must be the Default No-Reply Address for your organization, unless you configure
+     a specific `Org-Wide Email Address` on the Ack Setting record below
+   - If no Default No-Reply Address is set (and no Ack Setting org-wide address is
+     configured, or it can't be found), the email will fall back to the individual user
+1. Configure the acknowledgement email in `Setup > Custom Metadata Types > Ack Setting > Manage Records`
+   - Edit the `Default` record (or create your own and mark it `Active`)
+   - `Template Developer Name` / `Template Folder` - identify the EmailTemplate to send.
+     The `Default` record ships pointing at `HTML_Donation_Acknowledgement` in the
+     `EnhancedDonationAcknowledgements` folder
+   - `Org-Wide Email Address` (optional) - the exact Address of an
+     `Organization-Wide Address` to send from. Leave blank to use the org's Default
+     No-Reply Address (the previous, and still default, behavior)
+   - `Active` - only one `Ack_Setting__mdt` record should be Active at a time; the
+     first Active record found is used. If no record is Active, the app falls back to
+     the same hardcoded defaults the `Default` record ships with, so behavior is
+     unchanged if you don't touch this
 1. Make sure that the profiles that will be using this have the ability to execute Flows
    - In the profile: `App Permissions > Flow & Flow Orchestration > Run Flows`
 1. Ensure that the `Enhanced Donation Acknowledgement` flow is enabled
+
+### Missing Template Behavior
+
+If the `Template Developer Name` / `Template Folder` configured on the active
+`Ack_Setting__mdt` record don't resolve to an actual `EmailTemplate`, this is treated
+as a hard configuration error: **no emails are sent and no Opportunities are updated**.
+Every requested Opportunity is reported with status `CONFIG_ERROR` and a reason
+explaining which template/folder was not found. This replaces an earlier behavior where
+a missing template silently fell back to a generic static-content email - that fallback
+has been removed so a misconfiguration is never mistaken for a successfully-sent,
+on-brand acknowledgement. Check the Ack Setting configuration and the `EmailTemplate`'s
+folder/deployment status to resolve it.
 
 ## Donor Contact Source
 
@@ -38,13 +64,13 @@ expectations for "who gets acknowledged" before relying on this app in productio
 
 ## Known Limitations
 
-1. EDA can only send emails from the Default No-Reply Address for your organization
+1. Only one email template can be configured at a time (via `Ack_Setting__mdt`) - there
+   is no per-Opportunity or per-donor template selection
 
 ## Upcoming
 
 ### Roadmap
 
-- Select org-wide email address to use
 - Add resend feature
 - Enhance output from flows to show which Opportunities succeeded/errored
 
@@ -109,7 +135,11 @@ Opportunities → Validate → Prepare Emails → Send Emails → Update Records
 - **Comprehensive Error Handling** - Each pipeline step handles its specific error scenarios
 - **Duplicate Prevention** - Validates against existing acknowledgement dates
 - **Detailed Reporting** - Returns success/failure status for each opportunity
-- **Template Support** - Supports both Salesforce email templates and static content
+- **Admin-Editable Configuration** - Template, folder, and org-wide send address are
+  configured via the `Ack_Setting__mdt` Custom Metadata Type (see
+  [Setup](#setup)); no code changes needed to point at a different template
+- **Hard Error On Missing Template** - A misconfigured/missing template is a
+  `CONFIG_ERROR`, not a silent fallback (see [Missing Template Behavior](#missing-template-behavior))
 
 ### Test Architecture
 
@@ -127,6 +157,24 @@ Run tests with: `scripts/run_all_tests.sh`
   - [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)
 
 ## Recent Updates
+
+### Admin-Editable Configuration & Hard Error on Missing Template (Phase D)
+
+- Added the `Ack_Setting__mdt` Custom Metadata Type so admins can change the
+  acknowledgement email template, its folder, and the org-wide send address without a
+  deploy. See [Setup](#setup).
+- `DonationAcknowledgementServiceImpl` loads the active `Ack_Setting__mdt` record once
+  per instance (in the constructor) into its existing configuration fields; if no
+  active record exists, the previous hardcoded defaults are used, so behavior is
+  unchanged out of the box.
+- Removed the silent static-content fallback that used to kick in when the configured
+  template couldn't be found. A missing template is now a hard `AckStatus.CONFIG_ERROR`
+  for every requested Opportunity - no emails are sent, nothing is updated, and the
+  Flow/LWC/Aura callers are told exactly what's misconfigured instead of quietly
+  sending a generic email. See [Missing Template Behavior](#missing-template-behavior).
+- `IOrgWideEmailService` gained `getByAddress(String)`, so a configured org-wide
+  address is honored when present; a configured address that can't be found falls back
+  to the org's Default No-Reply Address (with a warning), rather than failing outright.
 
 ### Unified Error Handling (Phase B)
 

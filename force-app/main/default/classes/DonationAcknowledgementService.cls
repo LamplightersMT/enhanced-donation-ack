@@ -20,6 +20,8 @@ public with sharing class DonationAcknowledgementService {
     @InvocableVariable
     public Integer ackUpdateFailures;
     @InvocableVariable
+    public Integer configErrors;
+    @InvocableVariable
     public String emailType;
     @InvocableVariable
     public String summaryMessage;
@@ -106,6 +108,7 @@ public with sharing class DonationAcknowledgementService {
       flowResult.noValidContact = 0;
       flowResult.emailSendFailures = 0;
       flowResult.ackUpdateFailures = 0;
+      flowResult.configErrors = 0;
       flowResult.opportunityDetails = new List<OpportunityResultWrapper>();
       flowResult.summaryMessage =
         'Unexpected error processing donation acknowledgements: ' +

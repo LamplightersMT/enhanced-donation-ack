@@ -3,4 +3,5 @@
  */
 public interface IOrgWideEmailService {
   OrgWideEmailAddress getDefaultNoReplyAddress();
+  OrgWideEmailAddress getByAddress(String address);
 }

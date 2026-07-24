@@ -37,6 +37,21 @@
         <name>WebLink</name>
     </types>
     <types>
+        <members>Ack_Setting__mdt</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Ack_Setting__mdt.Active__c</members>
+        <members>Ack_Setting__mdt.Org_Wide_Email_Address__c</members>
+        <members>Ack_Setting__mdt.Template_DeveloperName__c</members>
+        <members>Ack_Setting__mdt.Template_Folder__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Ack_Setting.Default</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
         <members>EnhancedDonationAcknowledgements</members>
         <name>EmailFolder</name>
     </types>

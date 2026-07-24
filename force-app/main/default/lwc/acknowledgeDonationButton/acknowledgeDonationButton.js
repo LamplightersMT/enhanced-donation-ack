@@ -34,6 +34,7 @@ export default class AcknowledgeDonationButton extends LightningElement {
       const noValidContact = detailedResult.noValidContact || 0;
       const emailSendFailures = detailedResult.emailSendFailures || 0;
       const ackUpdateFailures = detailedResult.ackUpdateFailures || 0;
+      const configErrors = detailedResult.configErrors || 0;
       const totalOpportunities = detailedResult.totalOpportunities || 0;
 
       // Create enhanced success message with detailed counts
@@ -49,6 +50,9 @@ export default class AcknowledgeDonationButton extends LightningElement {
       }
       if (ackUpdateFailures > 0) {
         message += `, ${ackUpdateFailures} sent but record update failed`;
+      }
+      if (configErrors > 0) {
+        message += `, ${configErrors} configuration error(s)`;
       }
 
       // Determine appropriate title and variant based on results
@@ -82,6 +86,20 @@ export default class AcknowledgeDonationButton extends LightningElement {
       if (ackUpdateFailures > 0 && variant === "success") {
         title = "Completed With Issues";
         variant = "warning";
+      }
+
+      // A configuration error (missing email template) outranks every other
+      // variant above - no emails could even be attempted, so this always wins.
+      if (configErrors > 0) {
+        const configErrorDetail = (
+          detailedResult.opportunityResults || []
+        ).find((oppResult) => oppResult.status === "CONFIG_ERROR");
+        title = "Configuration Error";
+        variant = "error";
+        message =
+          configErrorDetail && configErrorDetail.reason
+            ? configErrorDetail.reason
+            : message;
       }
 
       this.dispatchEvent(
