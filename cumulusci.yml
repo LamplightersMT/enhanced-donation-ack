@@ -1,0 +1,8 @@
+project:
+  name: EnhancedDonationAck
+  package:
+    name: Enhanced Donation Acknowledgement
+    api_version: "62.0"
+  source_format: sfdx
+  dependencies:
+    - github: https://github.com/SalesforceFoundation/NPSP
