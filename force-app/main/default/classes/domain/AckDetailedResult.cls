@@ -31,8 +31,8 @@ public with sharing class AckDetailedResult {
     this.opportunityResults.add(oppResult);
     this.totalOpportunities++;
 
-    // NOTE: results are added to this aggregate AFTER DatabaseUpdateCommand has run,
-    // so status is final by this point - a result whose email sent but whose DB
+    // NOTE: results are added to this aggregate AFTER the database update step has
+    // run, so status is final by this point - a result whose email sent but whose DB
     // update failed will already carry ACK_UPDATE_FAILED, not SUCCESS.
     if (oppResult.status == AckStatus.ACK_UPDATE_FAILED) {
       this.ackUpdateFailures++;

@@ -284,8 +284,7 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceBulkProcessing() {
-    // Moved from testUpdateDatabaseBulkProcessing (DatabaseUpdateCommandTest)
-    // Verifies bulk processing of multiple opportunities.
+    // Verifies bulk processing of multiple opportunities through the full pipeline.
     // Built and inserted in a single bulk DML statement - inserting 5
     // opportunities for the same Contact one at a time in the same test method
     // can blow through the SOQL governor limit due to NPSP's Primary Contact
@@ -327,7 +326,6 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceTemplateIntegration() {
-    // Moved from testPrepareEmailsWithTemplateConfig (EmailPreparationCommandTest)
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
@@ -351,7 +349,6 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceMultipleContacts() {
-    // Moved from testPrepareEmailsMultipleContacts (EmailPreparationCommandTest)
     Contact c1 = AcknowledgementTestUtils.createTestContact(
       'contact1@example.com'
     );
@@ -403,7 +400,6 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceOrgWideEmailAddress() {
-    // Moved from testPrepareEmailsWithOrgWideEmailAddress (EmailPreparationCommandTest)
     // This test verifies the service handles org-wide email gracefully
     Contact c = [SELECT Id FROM Contact LIMIT 1];
     Opportunity opp = AcknowledgementTestUtils.createTestOpportunity(
@@ -433,6 +429,8 @@ private class DonationAcknowledgementServiceImplTest {
   @isTest
   static void testServiceOrgWideEmailDefaults() {
     // Combined from testGetDefaultOrgWideEmailAddressId_DefaultExists, testGetDefaultOrgWideEmailAddressId_SelectionAndDefaultExists, testGetDefaultOrgWideEmailAddressId_NoDefaultExists
+    // getDefaultOrgWideEmailAddressId() is @TestVisible private on the impl class, so it
+    // is exercised directly here rather than through the full send pipeline.
     OrgWideEmailAddress mockAddressDefault = new OrgWideEmailAddress();
     mockAddressDefault.Id = '0D2000000000001AAA';
     mockAddressDefault.Purpose = 'DefaultNoReply';
@@ -455,26 +453,17 @@ private class DonationAcknowledgementServiceImplTest {
 
     Test.startTest();
     // Case 1: DefaultNoReply
-    EmailPreparationCommand cmdDefault = new EmailPreparationCommand(
-      new List<Opportunity>(),
-      new AckEmailConfig('', '')
-    );
-    cmdDefault.orgWideEmailService = mockServiceDefault;
-    resultDefaultNoReply = cmdDefault.getDefaultOrgWideEmailAddressId();
+    DonationAcknowledgementServiceImpl serviceDefault = new DonationAcknowledgementServiceImpl();
+    serviceDefault.orgWideEmailService = mockServiceDefault;
+    resultDefaultNoReply = serviceDefault.getDefaultOrgWideEmailAddressId();
     // Case 2: UserSelectionAndDefaultNoReply
-    EmailPreparationCommand cmdSelection = new EmailPreparationCommand(
-      new List<Opportunity>(),
-      new AckEmailConfig('', '')
-    );
-    cmdSelection.orgWideEmailService = mockServiceSelection;
-    resultSelection = cmdSelection.getDefaultOrgWideEmailAddressId();
+    DonationAcknowledgementServiceImpl serviceSelection = new DonationAcknowledgementServiceImpl();
+    serviceSelection.orgWideEmailService = mockServiceSelection;
+    resultSelection = serviceSelection.getDefaultOrgWideEmailAddressId();
     // Case 3: No default
-    EmailPreparationCommand cmdNone = new EmailPreparationCommand(
-      new List<Opportunity>(),
-      new AckEmailConfig('', '')
-    );
-    cmdNone.orgWideEmailService = mockServiceNone;
-    resultNone = cmdNone.getDefaultOrgWideEmailAddressId();
+    DonationAcknowledgementServiceImpl serviceNone = new DonationAcknowledgementServiceImpl();
+    serviceNone.orgWideEmailService = mockServiceNone;
+    resultNone = serviceNone.getDefaultOrgWideEmailAddressId();
     Test.stopTest();
 
     System.assertEquals(
@@ -495,8 +484,75 @@ private class DonationAcknowledgementServiceImplTest {
   }
 
   @isTest
+  static void testAckUpdateFailedWhenDatabaseUpdateFails() {
+    // Exercises the full pipeline: two opportunities pass validation and their emails
+    // send successfully, but one of the underlying Opportunity records is deleted out
+    // from under the pipeline before the database update step runs (simulating a
+    // record deleted concurrently). That record's DML update fails and must be
+    // downgraded to ACK_UPDATE_FAILED rather than being silently left as SUCCESS or
+    // dropped - the email already went out.
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity goodOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Ack Update Good Opp',
+      c,
+      null,
+      100
+    );
+    Opportunity doomedOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Ack Update Doomed Opp',
+      c,
+      null,
+      100
+    );
+    List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
+      new List<Id>{ goodOpp.Id, doomedOpp.Id }
+    );
+    delete doomedOpp;
+
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
+
+    Test.startTest();
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
+    Test.stopTest();
+
+    System.assertEquals(2, result.totalOpportunities, 'Should total 2');
+    System.assertEquals(
+      1,
+      result.emailsSent,
+      'The surviving record should count as a successful send'
+    );
+    System.assertEquals(
+      1,
+      result.ackUpdateFailures,
+      'The deleted record should count as an ack update failure, not a success'
+    );
+
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+      result.opportunityResults
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Ack Update Good Opp',
+      AckStatus.SUCCESS,
+      'Email sent successfully'
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Ack Update Doomed Opp',
+      AckStatus.ACK_UPDATE_FAILED,
+      'manual attention'
+    );
+    System.assert(
+      resultsByName.get('Ack Update Doomed Opp').isFailed(),
+      'ACK_UPDATE_FAILED should be considered a failure'
+    );
+
+    AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(goodOpp.Id);
+  }
+
+  @isTest
   static void testServiceTemplateEmailSending() {
-    // Moved from testSendEmailsWithTemplateEmail (EmailSendCommandTest)
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{ opp.Id }
@@ -520,7 +576,6 @@ private class DonationAcknowledgementServiceImplTest {
 
   @isTest
   static void testServiceDifferentEmailTypes() {
-    // Moved from testEmailSendCommandWithDifferentEmailTypes (EmailSendCommandTest)
     // Simulate sending different types of emails (plain, template, etc.)
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(

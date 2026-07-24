@@ -60,7 +60,7 @@ expectations for "who gets acknowledged" before relying on this app in productio
 
 ## Architecture
 
-This project implements a **Command Pattern** architecture for processing donation acknowledgements, providing clean separation of concerns and robust error handling.
+This project implements a **Facade + service-methods** architecture for processing donation acknowledgements, providing clean separation of concerns and robust error handling.
 
 ### Query Flow
 
@@ -80,33 +80,33 @@ This project implements a **Command Pattern** architecture for processing donati
 - **`DonationAcknowledgementService`** - Main service class with static methods for external consumption
 - **`DonationAcknowledgementServiceImpl`** - Implementation class containing the core business logic
 
-#### Command Pattern Implementation
+#### Send Pipeline
 
-The system uses discrete command objects that implement `IAcknowledgementCommand` for each processing step:
+`DonationAcknowledgementServiceImpl.sendEmailsCoreDetailed()` orchestrates the send pipeline as private methods threading a single `AckContext` through each step (rather than a chain of single-use command objects):
 
-1. **`OpportunityValidationCommand`** - Validates opportunities and filters out ineligible records (already acknowledged, missing contacts, etc.)
-2. **`EmailPreparationCommand`** - Prepares email messages using templates or static content, maps contacts
-3. **`EmailSendCommand`** - Handles actual email delivery via Salesforce Messaging API
-4. **`DatabaseUpdateCommand`** - Updates opportunity records with acknowledgement dates in a single transaction
-5. **`ResultAggregationCommand`** - Aggregates results from all commands into a comprehensive response
+1. **`validate(ctx)`** - Validates opportunities and filters out ineligible records (already acknowledged, missing contacts, etc.); queries Contacts once and builds each valid opportunity's result
+2. **`prepareEmails(ctx)`** - Prepares email messages using templates or static content, reusing the Contact map from validation
+3. **`sendEmails(ctx)`** - Handles actual email delivery via Salesforce Messaging API
+4. **`updateRecords(ctx)`** - Updates opportunity records with acknowledgement dates in a single transaction
+
+The final per-opportunity statuses are folded into the aggregated `AckDetailedResult` at the end of orchestration.
 
 #### Supporting Classes
 
-- **`AcknowledgementCommandOutputs`** - Contains output classes for each command with strongly-typed results
-- **`IAcknowledgementCommand`** - Interface ensuring consistent command execution pattern
+- **`AckContext`** - Mutable pipeline state (opportunities, Contact map, email config, prepared emails/results, aggregated result) passed between the steps above
 
 ### Data Flow
 
 ```
-Opportunities → Validation → Email Prep → Email Send → DB Update → Result Aggregation
-     ↓                          ↓           ↓           ↓            ↓
-  Filter invalid           Create emails Send emails Update Acks  Final report
+Opportunities → Validate → Prepare Emails → Send Emails → Update Records → Aggregate
+     ↓              ↓            ↓              ↓              ↓             ↓
+  AckContext   Filter invalid Create emails  Send emails   Update Acks   Final report
 ```
 
 ### Key Features
 
 - **Transactional Integrity** - Database updates only occur after successful email sending
-- **Comprehensive Error Handling** - Each command handles its specific error scenarios
+- **Comprehensive Error Handling** - Each pipeline step handles its specific error scenarios
 - **Duplicate Prevention** - Validates against existing acknowledgement dates
 - **Detailed Reporting** - Returns success/failure status for each opportunity
 - **Template Support** - Supports both Salesforce email templates and static content
@@ -115,9 +115,9 @@ Opportunities → Validation → Email Prep → Email Send → DB Update → Res
 
 The project includes comprehensive test coverage (91%) with:
 
-- Individual test files for each command (`*CommandTest.cls`)
+- Orchestration-level tests in `DonationAcknowledgementServiceImplTest` covering the send pipeline with mocked email/org-wide services
 - Shared test utilities (`AcknowledgementTestUtils`) for consistent data setup
-- Full integration tests in `DonationAcknowledgementServiceTest`
+- Facade-level tests in `DonationAcknowledgementServiceTest` covering invocable mechanics and public API contract
 
 Run tests with: `scripts/run_all_tests.sh`
 
@@ -135,8 +135,8 @@ Run tests with: `scripts/run_all_tests.sh`
 - `IEmailService.sendEmail` now returns a per-message `AckSendResult` list (via
   `Messaging.sendEmail(emails, false)`), so a batch of acknowledgement emails can
   partially succeed instead of all-or-nothing.
-- `DatabaseUpdateCommand` uses `Database.update(records, false)` so a DML failure on
-  one record doesn't block the others.
+- The database update step uses `Database.update(records, false)` so a DML failure
+  on one record doesn't block the others.
 - Added `AckStatus.ACK_UPDATE_FAILED` for the "email sent but the database update
   failed" case - these opportunities need manual attention to avoid a duplicate
   acknowledgement, and are surfaced via `AckDetailedResult.ackUpdateFailures` and in
