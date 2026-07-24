@@ -62,8 +62,15 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * not observable. Blank fields on the CMT record are treated as "not configured" and
    * leave the corresponding default in place. If no active record exists, the hardcoded
    * defaults are kept as-is.
+   *
+   * Deliberately not WITH USER_MODE / no explicit CRUD/FLS check: Ack_Setting__mdt is
+   * admin-configured setup metadata (Custom Metadata Type), not user data. End users who
+   * lack Setup access to CMT records still need this configuration to resolve so they can
+   * send acknowledgements - enforcing user mode here would silently break the feature for
+   * non-admin users. Accepted PMD ApexCRUDViolation finding; see docs/ci-setup.md.
    */
   @TestVisible
+  @SuppressWarnings('PMD.ApexCRUDViolation')
   private void loadAckSettingConfig() {
     if (ackSettingConfigLoaded) {
       return;
@@ -116,6 +123,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
         npsp__Acknowledgment_Status__c // Added field
       FROM Opportunity
       WHERE Id IN :idList
+      WITH USER_MODE
     ];
   }
 
@@ -278,7 +286,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
       }
     }
     ctx.contactMap = new Map<Id, Contact>(
-      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
+      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds WITH USER_MODE]
     );
 
     List<Opportunity> validOpportunities = new List<Opportunity>();
@@ -443,7 +451,8 @@ public with sharing class DonationAcknowledgementServiceImpl {
 
     List<Database.SaveResult> saveResults = Database.update(
       oppsToUpdate,
-      false
+      false,
+      AccessLevel.USER_MODE
     );
 
     for (Integer i = 0; i < successfulResults.size(); i++) {
@@ -525,7 +534,14 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * @return AckEmailConfig configured with the template, or null if the configured
    * template could not be found (or the lookup failed unexpectedly) - callers must
    * treat null as a hard configuration error, not fall back to any other content.
+   *
+   * Deliberately not WITH USER_MODE / no explicit CRUD/FLS check: EmailTemplate is setup
+   * metadata that the running user does not need direct object access to in order to
+   * trigger a send - Messaging.sendEmail resolves and renders the template on the user's
+   * behalf. Enforcing user mode here would break sends for users without Setup access to
+   * EmailTemplate. Accepted PMD ApexCRUDViolation finding; see docs/ci-setup.md.
    */
+  @SuppressWarnings('PMD.ApexCRUDViolation')
   private AckEmailConfig getEmailConfiguration() {
     try {
       EmailTemplate tmpl = [

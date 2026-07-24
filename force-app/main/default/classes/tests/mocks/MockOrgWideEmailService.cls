@@ -1,7 +1,7 @@
 /**
  * Mock implementation of IOrgWideEmailService for testing
  */
-public class MockOrgWideEmailService implements IOrgWideEmailService {
+public with sharing class MockOrgWideEmailService implements IOrgWideEmailService {
   private OrgWideEmailAddress mockAddress;
   private OrgWideEmailAddress mockAddressByAddress;
   private Integer callCount = 0;

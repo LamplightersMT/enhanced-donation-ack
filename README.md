@@ -151,6 +151,17 @@ The project includes comprehensive test coverage (91%) with:
 
 Run tests with: `scripts/run_all_tests.sh`
 
+## Development
+
+### CI
+
+Every pull request and push to `main` runs formatting/lint/unit-test checks and static
+analysis (Salesforce Code Analyzer) automatically with no setup required. A third job
+deploys to a scratch org and runs the full Apex test suite via CumulusCI, but only once a
+Dev Hub secret is configured. See [`docs/ci-setup.md`](docs/ci-setup.md) for what each job
+does and the one manual step (creating the `DEVHUB_SFDX_AUTH_URL` repo secret) needed to
+enable the Apex test job.
+
 ## Notes
 
 - [How to use Flows for List View Records](https://www.accidentalcodersf.com/2020/07/use-flows-from-list-views-salesforce.html)

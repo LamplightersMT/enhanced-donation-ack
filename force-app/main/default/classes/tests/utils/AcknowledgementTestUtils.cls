@@ -3,7 +3,7 @@
  * Provides common test data creation, query helpers, and assertion methods across all test classes
  */
 @isTest
-public class AcknowledgementTestUtils {
+public with sharing class AcknowledgementTestUtils {
   // ===== TEST DATA CREATION METHODS =====
 
   /**

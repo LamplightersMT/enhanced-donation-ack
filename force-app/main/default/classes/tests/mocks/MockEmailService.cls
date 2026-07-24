@@ -2,7 +2,7 @@
  * Mock implementation of IEmailService for testing
  */
 @isTest
-public class MockEmailService implements IEmailService {
+public with sharing class MockEmailService implements IEmailService {
   private Boolean successful = true;
   private String errorMessage;
   private Set<Integer> failingIndexes;

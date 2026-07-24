@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Prettier, ESLint, and LWC Jest unit tests. No org required.
+  local-checks:
+    name: Local checks (prettier, lint, unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read Node.js version from .tool-versions
+        id: node-version
+        run: |
+          version=$(grep -E '^nodejs ' .tool-versions | awk '{print $2}')
+          echo "version=${version:-24}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node-version.outputs.version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify formatting (prettier)
+        run: npm run prettier:verify
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Unit tests with coverage (LWC Jest)
+        run: npm run test:unit:coverage
+
+  # Salesforce Code Analyzer (PMD/ESLint/etc.) over force-app. Fails the job on
+  # High (or more severe) findings. No org required.
+  code-analyzer:
+    name: Static analysis (Salesforce Code Analyzer)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # The Code Analyzer "flow" engine needs Python 3.10+ on PATH to
+      # instantiate. Without it, the engine fails to load - a Critical-severity
+      # tooling error (not a code finding) that would otherwise fail this job
+      # spuriously on every run.
+      - name: Set up Python (required by the Code Analyzer "flow" engine)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Read Node.js version from .tool-versions
+        id: node-version
+        run: |
+          version=$(grep -E '^nodejs ' .tool-versions | awk '{print $2}')
+          echo "version=${version:-24}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node-version.outputs.version }}
+
+      # No official salesforcecli/setup-cli action exists in the salesforcecli
+      # GitHub org (verified), so install the CLI directly via npm.
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Install code-analyzer plugin
+        run: sf plugins install code-analyzer@5.2.2
+
+      - name: Run Salesforce Code Analyzer
+        run: |
+          mkdir -p analysis-results
+          sf code-analyzer run \
+            --workspace force-app \
+            --view detail \
+            --severity-threshold High \
+            --output-file analysis-results/code-analyzer-results.json \
+            --output-file analysis-results/code-analyzer-results.html
+
+      - name: Upload Code Analyzer results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-analyzer-results
+          path: analysis-results/
+          retention-days: 30
+
+  # Secrets cannot be referenced directly in a job-level `if:` (a job whose
+  # condition depends solely on missing secrets can behave unpredictably, e.g.
+  # on forked-repo pull requests where secrets are unset). Route the check
+  # through a step that reads the secret into an env var and publishes a job
+  # output instead, then gate apex-tests on that output.
+  check-devhub-secret:
+    name: Check for DEVHUB_SFDX_AUTH_URL secret
+    runs-on: ubuntu-latest
+    outputs:
+      has_devhub: ${{ steps.check.outputs.has_devhub }}
+    steps:
+      - name: Check whether DEVHUB_SFDX_AUTH_URL secret is set
+        id: check
+        env:
+          DEVHUB_SFDX_AUTH_URL: ${{ secrets.DEVHUB_SFDX_AUTH_URL }}
+        run: |
+          if [ -n "$DEVHUB_SFDX_AUTH_URL" ]; then
+            echo "has_devhub=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_devhub=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Deploys to a scratch org via CumulusCI and runs the full Apex test suite.
+  # Skipped (not failed) when DEVHUB_SFDX_AUTH_URL isn't configured, e.g. on
+  # pull requests from forks. See docs/ci-setup.md for the one-time setup.
+  apex-tests:
+    name: Apex tests (scratch org via CumulusCI)
+    needs: check-devhub-secret
+    if: needs.check-devhub-secret.outputs.has_devhub == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Install CumulusCI
+        run: |
+          python -m pip install --upgrade pip pipx
+          python -m pipx ensurepath
+          pipx install cumulusci
+          # CI runners have no OS keyring (no Secret Service / macOS Keychain /
+          # Windows Credential Manager), which CumulusCI's local keychain
+          # needs by default. keyrings.alt provides a file-based fallback so
+          # `cci` can store/retrieve org and service credentials headlessly.
+          pipx inject cumulusci keyrings.alt
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Authenticate Dev Hub
+        env:
+          DEVHUB_SFDX_AUTH_URL: ${{ secrets.DEVHUB_SFDX_AUTH_URL }}
+        run: |
+          echo "$DEVHUB_SFDX_AUTH_URL" | sf org login sfdx-url --sfdx-url-stdin --set-default-dev-hub --alias devhub
+
+      # CumulusCI needs a GitHub token to resolve the NPSP dependency
+      # (unauthenticated GitHub API calls hit a low rate limit and can fail
+      # dependency resolution). The workflow's own GITHUB_TOKEN is sufficient.
+      - name: Connect GitHub service for CumulusCI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cci service connect github \
+            --username "${{ github.actor }}" \
+            --email "${{ github.actor }}@users.noreply.github.com" \
+            --token "$GITHUB_TOKEN" \
+            --project
+
+      - name: Deploy and run Apex tests in a scratch org
+        run: cci flow run ci_feature --org dev --no-prompt
+
+      - name: Delete scratch org
+        if: always()
+        run: cci org scratch_delete dev
