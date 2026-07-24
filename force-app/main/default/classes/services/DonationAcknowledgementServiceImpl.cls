@@ -1,12 +1,17 @@
 /**
  * Implementation class for donation acknowledgement business logic.
  * This class contains the core functionality that was previously in DonationAcknowledgementService.
- * Part of Facade + Command pattern implementation.
+ * Part of the Facade pattern implementation - DonationAcknowledgementService delegates here.
+ *
+ * The send pipeline (validate -> prepareEmails -> sendEmails -> updateRecords) is
+ * implemented as private methods threading a single AckContext through each step,
+ * rather than a chain of single-use command objects.
  *
  * Supports dependency injection through mutable instance variables:
  * - donationAckTemplateDevName: Template developer name for email templates
  * - donationAckTemplateFolder: Folder developer name for email templates
  * - emailService: Email service implementation for sending emails
+ * - orgWideEmailService: Org-wide email address lookup implementation
  */
 public with sharing class DonationAcknowledgementServiceImpl {
   // Instance variables for template configuration with default values
@@ -15,9 +20,11 @@ public with sharing class DonationAcknowledgementServiceImpl {
   @TestVisible
   public String donationAckTemplateFolder = 'EnhancedDonationAcknowledgements';
 
-  // Mutable instance variable for dependency injection
+  // Mutable instance variables for dependency injection
   @TestVisible
   public IEmailService emailService = new EmailService();
+  @TestVisible
+  public IOrgWideEmailService orgWideEmailService = new OrgWideEmailService();
 
   /**
    * Default constructor initializes instance variables with default values
@@ -130,66 +137,273 @@ public with sharing class DonationAcknowledgementServiceImpl {
   /**
    * Core email sending logic with detailed individual opportunity tracking.
    * Returns DetailedAckResult with specific status and reason codes for each opportunity.
-   * Now implemented using Command pattern for better separation of concerns.
+   *
+   * Orchestrates the pipeline by threading a single AckContext through each stage:
+   * validate -> prepareEmails -> sendEmails -> updateRecords, then folds the final
+   * per-opportunity statuses into the aggregated result.
    */
   @TestVisible
   public AckDetailedResult sendEmailsCoreDetailed(
     List<Opportunity> opps,
     AckEmailConfig config
   ) {
-    AckDetailedResult detailedResult = new AckDetailedResult();
+    AckContext ctx = new AckContext(opps, config);
 
-    // Command orchestration - each command handles a specific responsibility
+    validate(ctx);
+    prepareEmails(ctx);
+    sendEmails(ctx);
+    updateRecords(ctx);
 
-    // 1. Validate opportunities and filter out those that should be skipped
-    OpportunityValidationCommand validationCmd = new OpportunityValidationCommand(
-      opps,
-      detailedResult
+    // Aggregate all results (successes AND failures) into the final DetailedAckResult.
+    // By this point each AckOpportunityResult's status is final - sendEmails() and,
+    // if it ran, updateRecords() have already mutated status in place - so there is
+    // no need to branch on an overall success flag here.
+    for (AckOpportunityResult oppResult : ctx.preparedResults) {
+      ctx.result.addOpportunityResult(oppResult);
+    }
+    ctx.result.emailType = config.emailType;
+
+    return ctx.result;
+  }
+
+  /**
+   * Validate opportunities and filter out those that should be skipped.
+   * Queries Contacts once for every opportunity's npsp__Primary_Contact__c and
+   * stores the map on ctx for reuse by prepareEmails(). For each opportunity that
+   * passes validation, builds its AckOpportunityResult (with contactEmail set) and
+   * appends it to ctx.preparedResults; ctx.opportunities is narrowed in place to
+   * just the valid opportunities, index-aligned with ctx.preparedResults. Skipped
+   * opportunities are added directly to ctx.result.
+   */
+  private void validate(AckContext ctx) {
+    Set<Id> contactIds = new Set<Id>();
+    for (Opportunity opp : ctx.opportunities) {
+      if (opp.npsp__Primary_Contact__c != null) {
+        contactIds.add(opp.npsp__Primary_Contact__c);
+      }
+    }
+    ctx.contactMap = new Map<Id, Contact>(
+      [SELECT Id, Email FROM Contact WHERE Id IN :contactIds]
     );
-    validationCmd.execute();
-    List<Opportunity> validOpps = validationCmd.getValidOpportunities();
 
-    // 2. Prepare emails for valid opportunities
-    EmailPreparationCommand prepCmd = new EmailPreparationCommand(
-      validOpps,
-      config
-    );
-    prepCmd.execute();
-    AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = prepCmd.getOutput();
+    List<Opportunity> validOpportunities = new List<Opportunity>();
 
-    // 3. Send prepared emails
-    EmailSendCommand sendCmd = new EmailSendCommand(
-      prepOutput.emails,
-      prepOutput.validOpportunities
-    );
-    // Inject emailService for testing
-    sendCmd.emailService = this.emailService;
-    sendCmd.execute();
-    AcknowledgementCommandOutputs.SendOutput sendOutput = sendCmd.getOutput();
-
-    // 4. Update database with acknowledgment dates for any successfully-sent emails.
-    // Runs whenever there is at least one successful send, regardless of whether
-    // other messages in the same batch failed.
-    AcknowledgementCommandOutputs.UpdateOutput updateOutput = null;
-    if (!sendOutput.successfulOpportunities.isEmpty()) {
-      DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(
-        sendOutput.successfulOpportunities
+    for (Opportunity opp : ctx.opportunities) {
+      AckOpportunityResult oppResult = new AckOpportunityResult(
+        opp.Id,
+        opp.Name
       );
-      updateCmd.execute();
-      updateOutput = updateCmd.getOutput();
+
+      // Check if already acknowledged
+      if (opp.npsp__Acknowledgment_Date__c != null) {
+        oppResult.setStatus(
+          AckStatus.ALREADY_ACKNOWLEDGED,
+          'Opportunity already acknowledged on ' +
+          opp.npsp__Acknowledgment_Date__c.format()
+        );
+        ctx.result.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.INFO,
+          'Skipping already acknowledged opportunity: ' + opp.Name
+        );
+        continue;
+      }
+
+      // Check if has contact
+      if (opp.npsp__Primary_Contact__c == null) {
+        oppResult.setStatus(
+          AckStatus.NO_CONTACT,
+          'Opportunity has no associated Contact'
+        );
+        ctx.result.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.WARN,
+          'Opportunity ' + opp.Id + ' has no npsp__Primary_Contact__c.'
+        );
+        continue;
+      }
+
+      Contact contact = ctx.contactMap.get(opp.npsp__Primary_Contact__c);
+      if (contact == null) {
+        oppResult.setStatus(AckStatus.NO_CONTACT, 'Contact not found');
+        ctx.result.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.WARN,
+          'Contact not found for Opportunity ' + opp.Id
+        );
+        continue;
+      }
+
+      // Check if contact has email
+      if (String.isBlank(contact.Email)) {
+        oppResult.setStatus(AckStatus.NO_EMAIL, 'Contact has no email address');
+        ctx.result.addOpportunityResult(oppResult);
+        System.debug(
+          LoggingLevel.WARN,
+          'Contact ' + contact.Id + ' has no email.'
+        );
+        continue;
+      }
+
+      // Opportunity passed validation
+      oppResult.contactEmail = contact.Email;
+      validOpportunities.add(opp);
+      ctx.preparedResults.add(oppResult);
     }
 
-    // 5. Aggregate all results (successes AND failures) into final DetailedAckResult
-    ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
-      detailedResult,
-      prepOutput,
-      sendOutput,
-      updateOutput,
-      config.emailType
-    );
-    aggregationCmd.execute();
+    ctx.opportunities = validOpportunities;
+  }
 
-    return detailedResult;
+  /**
+   * Prepare email messages for the valid opportunities left on ctx by validate().
+   * Reuses ctx.contactMap rather than re-querying Contacts. ctx.opportunities and
+   * ctx.preparedResults are index-aligned, so each prepared email is appended to
+   * ctx.emails at the same index as its corresponding AckOpportunityResult.
+   */
+  private void prepareEmails(AckContext ctx) {
+    Id orgWideEmailId = getDefaultOrgWideEmailAddressId();
+
+    for (Integer i = 0; i < ctx.opportunities.size(); i++) {
+      Opportunity opp = ctx.opportunities[i];
+      Contact contact = ctx.contactMap.get(opp.npsp__Primary_Contact__c);
+
+      Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+      ctx.config.configureEmail(mail, contact, opp);
+      if (orgWideEmailId != null) {
+        mail.setOrgWideEmailAddressId(orgWideEmailId);
+      }
+
+      ctx.emails.add(mail);
+
+      if (ctx.config.useTemplate) {
+        System.debug(LoggingLevel.INFO, 'Prepared email: ' + mail);
+      }
+    }
+  }
+
+  /**
+   * Send the prepared emails. Never throws for expected failures - each message's
+   * success/failure is tracked individually via AckSendResult and reflected back
+   * onto the corresponding ctx.preparedResults entry by index (ctx.emails and
+   * ctx.preparedResults are index-aligned by construction).
+   */
+  private void sendEmails(AckContext ctx) {
+    if (ctx.emails.isEmpty()) {
+      return;
+    }
+
+    List<AckSendResult> results = emailService.sendEmail(ctx.emails);
+    Date today = Date.today();
+
+    for (Integer i = 0; i < ctx.preparedResults.size(); i++) {
+      AckOpportunityResult oppResult = ctx.preparedResults[i];
+      AckSendResult sendResult = i < results.size()
+        ? results[i]
+        : AckSendResult.fail('No send result returned for this message');
+
+      if (sendResult.success) {
+        oppResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
+        oppResult.acknowledgmentDate = today;
+      } else {
+        oppResult.setStatus(
+          AckStatus.EMAIL_SEND_FAILED,
+          'Email sending failed: ' + sendResult.errorMessage
+        );
+      }
+    }
+  }
+
+  /**
+   * Update opportunity acknowledgment dates in the database for any successfully-sent
+   * emails. Runs whenever there is at least one successful send, regardless of whether
+   * other messages in the same batch failed. Uses partial-success DML
+   * (Database.update with allOrNothing=false) so a DML failure on one record doesn't
+   * block the rest. A record whose email sent successfully but whose DB update failed
+   * is marked ACK_UPDATE_FAILED rather than being silently left as SUCCESS - the email
+   * already went out, so this needs manual attention to avoid a duplicate
+   * acknowledgement email later.
+   */
+  private void updateRecords(AckContext ctx) {
+    List<AckOpportunityResult> successfulResults = new List<AckOpportunityResult>();
+    for (AckOpportunityResult oppResult : ctx.preparedResults) {
+      if (oppResult.isSuccess()) {
+        successfulResults.add(oppResult);
+      }
+    }
+
+    if (successfulResults.isEmpty()) {
+      return;
+    }
+
+    List<Opportunity> oppsToUpdate = new List<Opportunity>();
+    for (AckOpportunityResult oppResult : successfulResults) {
+      oppsToUpdate.add(
+        new Opportunity(
+          Id = oppResult.opportunityId,
+          npsp__Acknowledgment_Date__c = oppResult.acknowledgmentDate,
+          npsp__Acknowledgment_Status__c = 'Acknowledged'
+        )
+      );
+    }
+
+    List<Database.SaveResult> saveResults = Database.update(
+      oppsToUpdate,
+      false
+    );
+
+    for (Integer i = 0; i < successfulResults.size(); i++) {
+      AckOpportunityResult oppResult = successfulResults[i];
+      Database.SaveResult saveResult = i < saveResults.size()
+        ? saveResults[i]
+        : null;
+
+      if (saveResult != null && saveResult.isSuccess()) {
+        continue;
+      }
+
+      List<String> errors = new List<String>();
+      if (saveResult != null) {
+        for (Database.Error err : saveResult.getErrors()) {
+          errors.add(err.getMessage());
+        }
+      }
+      String errorText = errors.isEmpty()
+        ? 'Unknown error'
+        : String.join(errors, '; ');
+
+      System.debug(
+        LoggingLevel.ERROR,
+        'Database update failed for Opportunity ' +
+          oppResult.opportunityId +
+          ': ' +
+          errorText
+      );
+
+      oppResult.setStatus(
+        AckStatus.ACK_UPDATE_FAILED,
+        'Email was sent, but record update failed: ' +
+          errorText +
+          '. Record needs manual attention to prevent duplicate acknowledgement.'
+      );
+    }
+  }
+
+  /**
+   * Helper to get the org-wide email address Id set as the organization's Default No-Reply Address.
+   * Returns null if none is configured as default.
+   * See: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm
+   */
+  @TestVisible
+  private Id getDefaultOrgWideEmailAddressId() {
+    OrgWideEmailAddress defaultNoReply = orgWideEmailService.getDefaultNoReplyAddress();
+    if (defaultNoReply == null) {
+      System.debug(
+        LoggingLevel.WARN,
+        'No org-wide email address is configured as Default No-Reply Address.'
+      );
+      return null;
+    }
+    return defaultNoReply.Id;
   }
 
   /**

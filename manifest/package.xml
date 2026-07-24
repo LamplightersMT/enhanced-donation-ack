@@ -1,28 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
+        <members>AckContext</members>
         <members>AckDetailedResult</members>
         <members>AckEmailConfig</members>
-        <members>AcknowledgementCommandOutputs</members>
         <members>AcknowledgementTestUtils</members>
         <members>AckOpportunityResult</members>
         <members>AckSendResult</members>
         <members>AckStatus</members>
-        <members>DatabaseUpdateCommand</members>
-        <members>DatabaseUpdateCommandTest</members>
         <members>DonationAcknowledgementService</members>
         <members>DonationAcknowledgementServiceImpl</members>
         <members>DonationAcknowledgementServiceImplTest</members>
         <members>DonationAcknowledgementServiceTest</members>
-        <members>EmailPreparationCommand</members>
-        <members>EmailPreparationCommandTest</members>
-        <members>EmailSendCommand</members>
-        <members>EmailSendCommandTest</members>
-        <members>IAcknowledgementCommand</members>
-        <members>OpportunityValidationCommand</members>
-        <members>OpportunityValidationCommandTest</members>
-        <members>ResultAggregationCommand</members>
-        <members>ResultAggregationCommandTest</members>
         <members>IOrgWideEmailService</members>
         <members>OrgWideEmailService</members>
         <members>MockOrgWideEmailService</members>
