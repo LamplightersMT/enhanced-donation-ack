@@ -35,7 +35,7 @@ Goal: one error channel (result objects, not exceptions), per-message send resul
 
 ### Deliverables
 
-1. Change `IEmailService.sendEmail` to return `List<Messaging.SendEmailResult>` instead of `void`/throw. `EmailService` calls `Messaging.sendEmail(emails, false)` (allOrNothing = false) and returns the results unfiltered. Update `MockEmailService` to support per-message success/failure configuration (add `setPartialFailure(List<Integer> failingIndexes)` alongside the existing helpers).
+1. Change `IEmailService.sendEmail` to return `List<AckSendResult>` (new domain class: `success`, `errorMessage`) instead of `void`/throw — one result per input email, in input order. (Amended from `List<Messaging.SendEmailResult>`: Apex tests cannot construct `SendEmailResult`, and a domain type decouples us from `Messaging` anyway.) `EmailService` calls `Messaging.sendEmail(emails, false)` (allOrNothing = false) and maps the results. Update `MockEmailService` to support per-message success/failure configuration (add `setPartialFailure(...)` alongside the existing helpers).
 2. Rework `EmailSendCommand`: map each `SendEmailResult` back to its opportunity by index (results are returned in input order). Successful messages get `SUCCESS`; failed messages get `EMAIL_SEND_FAILED` with the per-message error text. Remove both `throw new AuraHandledException(...)` statements. `SendOutput` gains genuinely mixed success/failure lists.
 3. Rework `DatabaseUpdateCommand`: use `Database.update(oppsToUpdate, false)` and map per-record results. Add a new `AckStatus.ACK_UPDATE_FAILED` for records whose email sent but whose update failed, with a reason that makes clear the email DID send and the record needs manual attention. Remove the `AuraHandledException` throws. Only opportunities whose email actually sent are passed to this command.
 4. Update aggregation and counters: `AckDetailedResult` gains an `ackUpdateFailures` count; `buildSummaryMessage` and the Flow wrapper expose it; the LWC toast logic surfaces it as a warning distinct from send failures ("emails sent but N records could not be updated").
@@ -98,7 +98,7 @@ Goal: automated checks on every PR and cleanup of small inconsistencies. Can pro
 1. Donor lookup: `npsp__Primary_Contact__c` (NPSP parity). Must be validated against real org data in a sandbox before production deploy.
 2. Missing template: hard error, send nothing. No static-content mode.
 3. CI org automation: CumulusCI.
-4. Verification workflow: Apex tests run in a re-authenticated sandbox (`ackdev25` or similar) before each phase PR merges. Local checks (prettier, eslint, jest, Code Analyzer) run on every change.
+4. Verification workflow (revised 2026-07-24): Apex tests run in disposable scratch orgs created from the connected DevHub, with NPSP installed via CumulusCI (pulled forward from Phase E). Local checks (prettier, eslint, jest, Code Analyzer) run on every change. A sandbox is still needed once, before any production deploy, to validate the `npsp__Primary_Contact__c` switch against real org data — scratch orgs have no real donor records.
 
 ## Execution workflow
 
