@@ -24,13 +24,10 @@ private class DatabaseUpdateCommandTest {
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
     // Create successful opportunity result
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      opp.Name
-    );
+    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
     oppResult.acknowledgmentDate = Date.today();
 
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -72,7 +69,7 @@ private class DatabaseUpdateCommandTest {
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
     List<Id> oppIds = new List<Id>();
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>();
 
     // Create multiple opportunities and results
     for (Integer i = 1; i <= 3; i++) {
@@ -84,7 +81,7 @@ private class DatabaseUpdateCommandTest {
       );
       oppIds.add(opp.Id);
 
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+      AckOpportunityResult oppResult = new AckOpportunityResult(
         opp.Id,
         'Update Test Opp ' + i
       );
@@ -135,7 +132,7 @@ private class DatabaseUpdateCommandTest {
   @isTest
   static void testUpdateDatabaseEmptyList() {
     // Test database update with empty opportunity list
-    List<DonationAcknowledgementService.OpportunityResult> emptyOpps = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> emptyOpps = new List<AckOpportunityResult>();
 
     Test.startTest();
     DatabaseUpdateCommand updateCmd = new DatabaseUpdateCommand(emptyOpps);
@@ -167,7 +164,7 @@ private class DatabaseUpdateCommandTest {
     Contact c = [SELECT Id FROM Contact LIMIT 1];
 
     List<Id> oppIds = new List<Id>();
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>();
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>();
 
     Date today = Date.today();
     Date yesterday = today.addDays(-1);
@@ -181,7 +178,7 @@ private class DatabaseUpdateCommandTest {
     );
     oppIds.add(opp1.Id);
 
-    DonationAcknowledgementService.OpportunityResult result1 = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult result1 = new AckOpportunityResult(
       opp1.Id,
       'Today Opp'
     );
@@ -196,7 +193,7 @@ private class DatabaseUpdateCommandTest {
     );
     oppIds.add(opp2.Id);
 
-    DonationAcknowledgementService.OpportunityResult result2 = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult result2 = new AckOpportunityResult(
       opp2.Id,
       'Yesterday Opp'
     );
@@ -249,13 +246,13 @@ private class DatabaseUpdateCommandTest {
     // Note: In test context, DML operations are more forgiving
     // This test verifies the command structure handles errors properly
 
-    DonationAcknowledgementService.OpportunityResult invalidResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult invalidResult = new AckOpportunityResult(
       '006000000000000AAA', // Invalid ID format
       'Invalid Opportunity'
     );
     invalidResult.acknowledgmentDate = Date.today();
 
-    List<DonationAcknowledgementService.OpportunityResult> invalidOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> invalidOpps = new List<AckOpportunityResult>{
       invalidResult
     };
 
@@ -286,20 +283,17 @@ private class DatabaseUpdateCommandTest {
     // Test that opportunity results are properly modified on database errors
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      opp.Name
-    );
+    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
     oppResult.acknowledgmentDate = Date.today();
 
     // Verify initial state
     System.assertNotEquals(
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+      AckStatus.EMAIL_SEND_FAILED,
       oppResult.status,
       'Status should not start as failed'
     );
 
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -319,7 +313,7 @@ private class DatabaseUpdateCommandTest {
     } catch (AuraHandledException e) {
       // In error case, verify opportunity results were marked as failed
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
+        AckStatus.EMAIL_SEND_FAILED,
         oppResult.status,
         'Status should be marked as failed on database error'
       );
@@ -336,13 +330,10 @@ private class DatabaseUpdateCommandTest {
     // Test the structure and properties of the UpdateOutput class
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      opp.Name
-    );
+    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
     oppResult.acknowledgmentDate = Date.today();
 
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -382,13 +373,10 @@ private class DatabaseUpdateCommandTest {
 
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      opp.Name
-    );
+    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
     // Deliberately leave acknowledgmentDate as null
 
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
       oppResult
     };
 
@@ -429,13 +417,10 @@ private class DatabaseUpdateCommandTest {
     Opportunity opp = [SELECT Id, Name FROM Opportunity LIMIT 1];
 
     // Create successful opportunity result
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
-      opp.Id,
-      opp.Name
-    );
+    AckOpportunityResult oppResult = new AckOpportunityResult(opp.Id, opp.Name);
     oppResult.acknowledgmentDate = Date.today();
 
-    List<DonationAcknowledgementService.OpportunityResult> successfulOpps = new List<DonationAcknowledgementService.OpportunityResult>{
+    List<AckOpportunityResult> successfulOpps = new List<AckOpportunityResult>{
       oppResult
     };
 

@@ -216,7 +216,7 @@ public class AcknowledgementTestUtils {
    * Assert common detailed result counts
    */
   public static void assertDetailedResultCounts(
-    DonationAcknowledgementService.DetailedAckResult result,
+    AckDetailedResult result,
     Integer expectedTotal,
     Integer expectedSent,
     Integer expectedAcknowledged,
@@ -253,11 +253,11 @@ public class AcknowledgementTestUtils {
   /**
    * Create a map of opportunity results by name for easy lookup in tests
    */
-  public static Map<String, DonationAcknowledgementService.OpportunityResult> createResultsByNameMap(
-    List<DonationAcknowledgementService.OpportunityResult> results
+  public static Map<String, AckOpportunityResult> createResultsByNameMap(
+    List<AckOpportunityResult> results
   ) {
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = new Map<String, DonationAcknowledgementService.OpportunityResult>();
-    for (DonationAcknowledgementService.OpportunityResult result : results) {
+    Map<String, AckOpportunityResult> resultsByName = new Map<String, AckOpportunityResult>();
+    for (AckOpportunityResult result : results) {
       resultsByName.put(result.opportunityName, result);
     }
     return resultsByName;
@@ -267,14 +267,12 @@ public class AcknowledgementTestUtils {
    * Assert opportunity result by name with expected status and partial reason match
    */
   public static void assertOpportunityResult(
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName,
+    Map<String, AckOpportunityResult> resultsByName,
     String oppName,
-    DonationAcknowledgementService.AckStatus expectedStatus,
+    AckStatus expectedStatus,
     String reasonContains
   ) {
-    DonationAcknowledgementService.OpportunityResult result = resultsByName.get(
-      oppName
-    );
+    AckOpportunityResult result = resultsByName.get(oppName);
     System.assertNotEquals(null, result, 'Should have result for ' + oppName);
     System.assertEquals(
       expectedStatus,

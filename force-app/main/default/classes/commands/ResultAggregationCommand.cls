@@ -3,14 +3,14 @@
  * Modifies the DetailedAckResult directly - no return value
  */
 public with sharing class ResultAggregationCommand implements IAcknowledgementCommand {
-  private DonationAcknowledgementService.DetailedAckResult result;
+  private AckDetailedResult result;
   private AcknowledgementCommandOutputs.EmailPrepOutput prepOutput;
   private AcknowledgementCommandOutputs.SendOutput sendOutput;
   private AcknowledgementCommandOutputs.UpdateOutput updateOutput;
   private String emailType;
 
   public ResultAggregationCommand(
-    DonationAcknowledgementService.DetailedAckResult result,
+    AckDetailedResult result,
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput,
     AcknowledgementCommandOutputs.SendOutput sendOutput,
     AcknowledgementCommandOutputs.UpdateOutput updateOutput,
@@ -30,15 +30,13 @@ public with sharing class ResultAggregationCommand implements IAcknowledgementCo
     // Add successful opportunities to result
     if (sendOutput.isSuccess) {
       for (
-        DonationAcknowledgementService.OpportunityResult oppResult : sendOutput.successfulOpportunities
+        AckOpportunityResult oppResult : sendOutput.successfulOpportunities
       ) {
         result.addOpportunityResult(oppResult);
       }
     } else {
       // Add failed opportunities to result
-      for (
-        DonationAcknowledgementService.OpportunityResult oppResult : sendOutput.failedOpportunities
-      ) {
+      for (AckOpportunityResult oppResult : sendOutput.failedOpportunities) {
         result.addOpportunityResult(oppResult);
       }
     }

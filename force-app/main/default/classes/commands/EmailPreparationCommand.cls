@@ -4,7 +4,7 @@
  */
 public with sharing class EmailPreparationCommand implements IAcknowledgementCommand {
   private List<Opportunity> validOpportunities;
-  private DonationAcknowledgementService.EmailConfig config;
+  private AckEmailConfig config;
   private AcknowledgementCommandOutputs.EmailPrepOutput prepOutput;
 
   @testVisible
@@ -12,7 +12,7 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
 
   public EmailPreparationCommand(
     List<Opportunity> validOpportunities,
-    DonationAcknowledgementService.EmailConfig config
+    AckEmailConfig config
   ) {
     this.validOpportunities = validOpportunities;
     this.config = config;
@@ -41,7 +41,7 @@ public with sharing class EmailPreparationCommand implements IAcknowledgementCom
     for (Opportunity opp : validOpportunities) {
       Contact contact = prepOutput.contactMap.get(opp.ContactId);
       if (contact != null) {
-        DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+        AckOpportunityResult oppResult = new AckOpportunityResult(
           opp.Id,
           opp.Name
         );

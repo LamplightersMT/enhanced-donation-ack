@@ -149,7 +149,7 @@ private class DonationAcknowledgementServiceTest {
 
     Test.startTest();
     try {
-      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
         oppIds
       );
       // If we get here, email sending succeeded (normal test behavior)
@@ -203,7 +203,7 @@ private class DonationAcknowledgementServiceTest {
     Test.startTest();
     AcknowledgementTestUtils.injectServiceWithMockEmail();
 
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       oppIds
     );
 
@@ -260,7 +260,7 @@ private class DonationAcknowledgementServiceTest {
     List<Id> oppIds = new List<Id>{ acknowledgedOpp.Id };
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       oppIds
     );
     Test.stopTest();
@@ -285,7 +285,7 @@ private class DonationAcknowledgementServiceTest {
     Id testOppId = '006000000000001AAA'; // Mock opportunity ID
     String testOppName = 'Test Opportunity';
 
-    DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult oppResult = new AckOpportunityResult(
       testOppId,
       testOppName
     );
@@ -302,12 +302,9 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Test setting success status
-    oppResult.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
+    oppResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       oppResult.status,
       'Should set success status'
     );
@@ -321,19 +318,13 @@ private class DonationAcknowledgementServiceTest {
     System.assert(!oppResult.isFailed(), 'Should not identify as failed');
 
     // Test setting skipped status
-    oppResult.setStatus(
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
-      'Already acknowledged'
-    );
+    oppResult.setStatus(AckStatus.ALREADY_ACKNOWLEDGED, 'Already acknowledged');
     System.assert(!oppResult.isSuccess(), 'Should not identify as success');
     System.assert(oppResult.isSkipped(), 'Should identify as skipped');
     System.assert(!oppResult.isFailed(), 'Should not identify as failed');
 
     // Test setting failed status
-    oppResult.setStatus(
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-      'Send failed'
-    );
+    oppResult.setStatus(AckStatus.EMAIL_SEND_FAILED, 'Send failed');
     System.assert(!oppResult.isSuccess(), 'Should not identify as success');
     System.assert(!oppResult.isSkipped(), 'Should not identify as skipped');
     System.assert(oppResult.isFailed(), 'Should identify as failed');
@@ -342,44 +333,35 @@ private class DonationAcknowledgementServiceTest {
   @isTest
   static void testDetailedAckResultAggregation() {
     // Test DetailedAckResult class functionality
-    DonationAcknowledgementService.DetailedAckResult detailedResult = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult detailedResult = new AckDetailedResult();
 
     // Create various OpportunityResults to test aggregation
-    DonationAcknowledgementService.OpportunityResult successResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult successResult = new AckOpportunityResult(
       '006000000000001AAA',
       'Success Opp'
     );
-    successResult.setStatus(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
-      'Email sent'
-    );
+    successResult.setStatus(AckStatus.SUCCESS, 'Email sent');
 
-    DonationAcknowledgementService.OpportunityResult acknowledgedResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult acknowledgedResult = new AckOpportunityResult(
       '006000000000002AAA',
       'Acknowledged Opp'
     );
     acknowledgedResult.setStatus(
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       'Already done'
     );
 
-    DonationAcknowledgementService.OpportunityResult noContactResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult noContactResult = new AckOpportunityResult(
       '006000000000003AAA',
       'No Contact Opp'
     );
-    noContactResult.setStatus(
-      DonationAcknowledgementService.AckStatus.NO_CONTACT,
-      'No contact'
-    );
+    noContactResult.setStatus(AckStatus.NO_CONTACT, 'No contact');
 
-    DonationAcknowledgementService.OpportunityResult failedResult = new DonationAcknowledgementService.OpportunityResult(
+    AckOpportunityResult failedResult = new AckOpportunityResult(
       '006000000000004AAA',
       'Failed Opp'
     );
-    failedResult.setStatus(
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED,
-      'Send failed'
-    );
+    failedResult.setStatus(AckStatus.EMAIL_SEND_FAILED, 'Send failed');
 
     // Add results and verify aggregation
     detailedResult.addOpportunityResult(successResult);
@@ -414,7 +396,7 @@ private class DonationAcknowledgementServiceTest {
     );
 
     // Test filtering methods
-    List<DonationAcknowledgementService.OpportunityResult> successful = detailedResult.getSuccessfulResults();
+    List<AckOpportunityResult> successful = detailedResult.getSuccessfulResults();
     System.assertEquals(
       1,
       successful.size(),
@@ -426,10 +408,10 @@ private class DonationAcknowledgementServiceTest {
       'Should be the success opportunity'
     );
 
-    List<DonationAcknowledgementService.OpportunityResult> skipped = detailedResult.getSkippedResults();
+    List<AckOpportunityResult> skipped = detailedResult.getSkippedResults();
     System.assertEquals(2, skipped.size(), 'Should have 2 skipped results');
 
-    List<DonationAcknowledgementService.OpportunityResult> failed = detailedResult.getFailedResults();
+    List<AckOpportunityResult> failed = detailedResult.getFailedResults();
     System.assertEquals(1, failed.size(), 'Should have 1 failed result');
     System.assertEquals(
       'Failed Opp',
@@ -488,18 +470,12 @@ private class DonationAcknowledgementServiceTest {
       new List<Id>{ opp1.Id, opp2.Id }
     );
 
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
 
     Test.startTest();
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
 
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
 
     AcknowledgementTestUtils.resetServiceInstance();
     Test.stopTest();
@@ -514,11 +490,9 @@ private class DonationAcknowledgementServiceTest {
       'Should have 2 opportunity results'
     );
 
-    for (
-      DonationAcknowledgementService.OpportunityResult oppResult : result.opportunityResults
-    ) {
+    for (AckOpportunityResult oppResult : result.opportunityResults) {
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
+        AckStatus.SUCCESS,
         oppResult.status,
         'Should be successful'
       );
@@ -589,20 +563,14 @@ private class DonationAcknowledgementServiceTest {
         noEmailOpp.Id
       }
     );
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      'Test Subject',
-      'Test Body'
-    );
+    AckEmailConfig config = new AckEmailConfig('Test Subject', 'Test Body');
     // Instance-based: create and configure service with mock email
     DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = service.sendEmailsCoreDetailed(
-      opps,
-      config
-    );
+    AckDetailedResult result = service.sendEmailsCoreDetailed(opps, config);
     Test.stopTest();
     AcknowledgementTestUtils.assertDetailedResultCounts(result, 4, 1, 1, 2, 0);
-    List<DonationAcknowledgementService.OpportunityResult> successfulResults = result.getSuccessfulResults();
+    List<AckOpportunityResult> successfulResults = result.getSuccessfulResults();
     System.assertEquals(
       1,
       successfulResults.size(),
@@ -613,30 +581,12 @@ private class DonationAcknowledgementServiceTest {
   @isTest
   static void testAckStatusEnumValues() {
     // Test that all expected enum values exist
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.SUCCESS
-    );
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED
-    );
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.NO_CONTACT
-    );
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.NO_EMAIL
-    );
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.EMAIL_SEND_FAILED
-    );
-    System.assertNotEquals(
-      null,
-      DonationAcknowledgementService.AckStatus.INVALID_OPPORTUNITY
-    );
+    System.assertNotEquals(null, AckStatus.SUCCESS);
+    System.assertNotEquals(null, AckStatus.ALREADY_ACKNOWLEDGED);
+    System.assertNotEquals(null, AckStatus.NO_CONTACT);
+    System.assertNotEquals(null, AckStatus.NO_EMAIL);
+    System.assertNotEquals(null, AckStatus.EMAIL_SEND_FAILED);
+    System.assertNotEquals(null, AckStatus.INVALID_OPPORTUNITY);
   }
 
   @isTest
@@ -648,7 +598,7 @@ private class DonationAcknowledgementServiceTest {
     Test.startTest();
     AcknowledgementTestUtils.injectServiceWithMockEmail();
 
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       oppIds
     );
 
@@ -668,14 +618,14 @@ private class DonationAcknowledgementServiceTest {
       result.opportunityResults.size(),
       'Should have 1 opportunity result'
     );
-    DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+    AckOpportunityResult oppResult = result.opportunityResults[0];
     System.assertEquals(
       opp.Id,
       oppResult.opportunityId,
       'Should have correct opportunity ID'
     );
     System.assertEquals(
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       oppResult.status,
       'Should be successful'
     );
@@ -711,7 +661,7 @@ private class DonationAcknowledgementServiceTest {
       List<Id> oppIds = new List<Id>{ opp.Id };
 
       Test.startTest();
-      DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
         oppIds
       );
       Test.stopTest();
@@ -736,9 +686,9 @@ private class DonationAcknowledgementServiceTest {
         result.opportunityResults.size(),
         'Should have 1 opportunity result'
       );
-      DonationAcknowledgementService.OpportunityResult oppResult = result.opportunityResults[0];
+      AckOpportunityResult oppResult = result.opportunityResults[0];
       System.assertEquals(
-        DonationAcknowledgementService.AckStatus.SUCCESS,
+        AckStatus.SUCCESS,
         oppResult.status,
         'Should be successful'
       );
@@ -753,7 +703,7 @@ private class DonationAcknowledgementServiceTest {
     List<Id> emptyIds = new List<Id>();
 
     Test.startTest();
-    DonationAcknowledgementService.DetailedAckResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       emptyIds
     );
     Test.stopTest();
@@ -796,7 +746,7 @@ private class DonationAcknowledgementServiceTest {
     Test.startTest();
     AcknowledgementTestUtils.injectServiceWithMockEmail();
 
-    List<DonationAcknowledgementService.OpportunityResult> results = DonationAcknowledgementService.getOpportunityResults(
+    List<AckOpportunityResult> results = DonationAcknowledgementService.getOpportunityResults(
       oppIds
     );
 
@@ -807,7 +757,7 @@ private class DonationAcknowledgementServiceTest {
     System.assertEquals(2, results.size(), 'Should have 2 opportunity results');
 
     // Find results by opportunity name using helper
-    Map<String, DonationAcknowledgementService.OpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
       results
     );
 
@@ -815,20 +765,18 @@ private class DonationAcknowledgementServiceTest {
     AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Success Opp',
-      DonationAcknowledgementService.AckStatus.SUCCESS,
+      AckStatus.SUCCESS,
       'Email sent successfully'
     );
 
-    DonationAcknowledgementService.OpportunityResult successResult = resultsByName.get(
-      'Success Opp'
-    );
+    AckOpportunityResult successResult = resultsByName.get('Success Opp');
     System.assertEquals('testuser@example.com', successResult.contactEmail);
 
     // Verify already acknowledged opportunity
     AcknowledgementTestUtils.assertOpportunityResult(
       resultsByName,
       'Already Acknowledged Opp',
-      DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+      AckStatus.ALREADY_ACKNOWLEDGED,
       'already acknowledged'
     );
   }
@@ -843,7 +791,7 @@ private class DonationAcknowledgementServiceTest {
     AcknowledgementTestUtils.injectServiceWithMockEmail();
 
     // Call detailed method
-    DonationAcknowledgementService.DetailedAckResult detailedResult = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+    AckDetailedResult detailedResult = DonationAcknowledgementService.sendAcknowledgementsDetailed(
       oppIds
     );
 

@@ -72,7 +72,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Convert DetailedAckResult to Flow-compatible DetailedAckResultWrapper
    */
   public DonationAcknowledgementService.DetailedAckResultWrapper convertToFlowWrapper(
-    DonationAcknowledgementService.DetailedAckResult detailedResult
+    AckDetailedResult detailedResult
   ) {
     DonationAcknowledgementService.DetailedAckResultWrapper flowResult = new DonationAcknowledgementService.DetailedAckResultWrapper();
 
@@ -87,9 +87,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
 
     // Convert individual opportunity results
     flowResult.opportunityDetails = new List<DonationAcknowledgementService.OpportunityResultWrapper>();
-    for (
-      DonationAcknowledgementService.OpportunityResult oppResult : detailedResult.opportunityResults
-    ) {
+    for (AckOpportunityResult oppResult : detailedResult.opportunityResults) {
       DonationAcknowledgementService.OpportunityResultWrapper flowOppResult = new DonationAcknowledgementService.OpportunityResultWrapper();
       flowOppResult.opportunityId = String.valueOf(oppResult.opportunityId);
       flowOppResult.opportunityName = oppResult.opportunityName;
@@ -114,17 +112,15 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * @param idList List of Opportunity IDs to process
    * @return DetailedAckResult with individual opportunity tracking and aggregated counts
    */
-  public DonationAcknowledgementService.DetailedAckResult sendAcknowledgementsDetailed(
-    List<Id> idList
-  ) {
+  public AckDetailedResult sendAcknowledgementsDetailed(List<Id> idList) {
     List<Opportunity> opps = getOpportunitiesByIds(idList);
     if (opps.isEmpty()) {
-      DonationAcknowledgementService.DetailedAckResult emptyResult = new DonationAcknowledgementService.DetailedAckResult();
+      AckDetailedResult emptyResult = new AckDetailedResult();
       emptyResult.emailType = 'No opportunities provided';
       return emptyResult;
     }
-    DonationAcknowledgementService.DetailedAckResult result;
-    DonationAcknowledgementService.EmailConfig config = getEmailConfiguration();
+    AckDetailedResult result;
+    AckEmailConfig config = getEmailConfiguration();
     result = sendEmailsCoreDetailed(opps, config);
     result.emailType = config.emailType;
     return result;
@@ -136,11 +132,11 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Now implemented using Command pattern for better separation of concerns.
    */
   @TestVisible
-  public DonationAcknowledgementService.DetailedAckResult sendEmailsCoreDetailed(
+  public AckDetailedResult sendEmailsCoreDetailed(
     List<Opportunity> opps,
-    DonationAcknowledgementService.EmailConfig config
+    AckEmailConfig config
   ) {
-    DonationAcknowledgementService.DetailedAckResult detailedResult = new DonationAcknowledgementService.DetailedAckResult();
+    AckDetailedResult detailedResult = new AckDetailedResult();
 
     // Command orchestration - each command handles a specific responsibility
 
@@ -206,7 +202,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Get email configuration with proper exception handling for template lookup
    * @return EmailConfig configured with template or static fallback
    */
-  private DonationAcknowledgementService.EmailConfig getEmailConfiguration() {
+  private AckEmailConfig getEmailConfiguration() {
     try {
       EmailTemplate tmpl = [
         SELECT Id
@@ -216,9 +212,7 @@ public with sharing class DonationAcknowledgementServiceImpl {
           AND Folder.DeveloperName = :donationAckTemplateFolder
         LIMIT 1
       ];
-      DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-        tmpl.Id
-      );
+      AckEmailConfig config = new AckEmailConfig(tmpl.Id);
       config.emailType = 'Template used: ' + donationAckTemplateDevName;
       return config;
     } catch (QueryException qe) {
@@ -240,13 +234,10 @@ public with sharing class DonationAcknowledgementServiceImpl {
    * Get static email configuration as fallback
    * @return EmailConfig with static content
    */
-  private DonationAcknowledgementService.EmailConfig getStaticEmailConfiguration() {
+  private AckEmailConfig getStaticEmailConfiguration() {
     String subject = 'Thank you for your donation!';
     String body = 'We appreciate your generous support.';
-    DonationAcknowledgementService.EmailConfig config = new DonationAcknowledgementService.EmailConfig(
-      subject,
-      body
-    );
+    AckEmailConfig config = new AckEmailConfig(subject, body);
     config.emailType = 'Static content fallback';
     return config;
   }

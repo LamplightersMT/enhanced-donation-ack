@@ -4,12 +4,12 @@
  */
 public with sharing class OpportunityValidationCommand implements IAcknowledgementCommand {
   private List<Opportunity> opportunities;
-  private DonationAcknowledgementService.DetailedAckResult result;
+  private AckDetailedResult result;
   private List<Opportunity> validOpportunities;
 
   public OpportunityValidationCommand(
     List<Opportunity> opportunities,
-    DonationAcknowledgementService.DetailedAckResult result
+    AckDetailedResult result
   ) {
     this.opportunities = opportunities;
     this.result = result;
@@ -35,7 +35,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
     // Process each opportunity individually with detailed tracking
     for (Opportunity opp : opportunities) {
       // QUESTION: Should OpportunityResult be defined in this class or in DonationAcknowledgementService?
-      DonationAcknowledgementService.OpportunityResult oppResult = new DonationAcknowledgementService.OpportunityResult(
+      AckOpportunityResult oppResult = new AckOpportunityResult(
         opp.Id,
         opp.Name
       );
@@ -43,7 +43,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
       // Check if already acknowledged
       if (opp.npsp__Acknowledgment_Date__c != null) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.ALREADY_ACKNOWLEDGED,
+          AckStatus.ALREADY_ACKNOWLEDGED,
           'Opportunity already acknowledged on ' +
           opp.npsp__Acknowledgment_Date__c.format()
         );
@@ -58,7 +58,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
       // Check if has contact
       if (opp.ContactId == null) {
         oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_CONTACT,
+          AckStatus.NO_CONTACT,
           'Opportunity has no associated Contact'
         );
         result.addOpportunityResult(oppResult);
@@ -71,10 +71,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
 
       Contact contact = contactMap.get(opp.ContactId);
       if (contact == null) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_CONTACT,
-          'Contact not found'
-        );
+        oppResult.setStatus(AckStatus.NO_CONTACT, 'Contact not found');
         result.addOpportunityResult(oppResult);
         System.debug(
           LoggingLevel.WARN,
@@ -85,10 +82,7 @@ public with sharing class OpportunityValidationCommand implements IAcknowledgeme
 
       // Check if contact has email
       if (String.isBlank(contact.Email)) {
-        oppResult.setStatus(
-          DonationAcknowledgementService.AckStatus.NO_EMAIL,
-          'Contact has no email address'
-        );
+        oppResult.setStatus(AckStatus.NO_EMAIL, 'Contact has no email address');
         result.addOpportunityResult(oppResult);
         System.debug(
           LoggingLevel.WARN,

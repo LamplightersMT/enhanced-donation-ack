@@ -9,12 +9,12 @@ public with sharing class AcknowledgementCommandOutputs {
   public class EmailPrepOutput {
     public List<Messaging.SingleEmailMessage> emails;
     public Map<Id, Contact> contactMap;
-    public List<DonationAcknowledgementService.OpportunityResult> validOpportunities;
+    public List<AckOpportunityResult> validOpportunities;
 
     public EmailPrepOutput() {
       this.emails = new List<Messaging.SingleEmailMessage>();
       this.contactMap = new Map<Id, Contact>();
-      this.validOpportunities = new List<DonationAcknowledgementService.OpportunityResult>();
+      this.validOpportunities = new List<AckOpportunityResult>();
     }
   }
 
@@ -24,18 +24,16 @@ public with sharing class AcknowledgementCommandOutputs {
   public class SendOutput {
     public Boolean isSuccess;
     public String errorMessage;
-    public List<DonationAcknowledgementService.OpportunityResult> successfulOpportunities;
-    public List<DonationAcknowledgementService.OpportunityResult> failedOpportunities;
+    public List<AckOpportunityResult> successfulOpportunities;
+    public List<AckOpportunityResult> failedOpportunities;
 
     public SendOutput() {
       this.isSuccess = false;
-      this.successfulOpportunities = new List<DonationAcknowledgementService.OpportunityResult>();
-      this.failedOpportunities = new List<DonationAcknowledgementService.OpportunityResult>();
+      this.successfulOpportunities = new List<AckOpportunityResult>();
+      this.failedOpportunities = new List<AckOpportunityResult>();
     }
 
-    public SendOutput setSuccess(
-      List<DonationAcknowledgementService.OpportunityResult> successfulOpps
-    ) {
+    public SendOutput setSuccess(List<AckOpportunityResult> successfulOpps) {
       this.isSuccess = true;
       this.successfulOpportunities = successfulOpps;
       return this;
@@ -43,7 +41,7 @@ public with sharing class AcknowledgementCommandOutputs {
 
     public SendOutput setFailure(
       String errorMessage,
-      List<DonationAcknowledgementService.OpportunityResult> failedOpps
+      List<AckOpportunityResult> failedOpps
     ) {
       this.isSuccess = false;
       this.errorMessage = errorMessage;
