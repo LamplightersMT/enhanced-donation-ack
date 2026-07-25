@@ -77,9 +77,12 @@ export default class AcknowledgeDonationButton extends LightningElement {
 
       // A run that sent an email but failed to persist the acknowledgement record
       // needs manual attention - it must never be reported as a plain green
-      // success. Cap severity to at most "warning" for this condition alone
-      // (an already-worse variant, e.g. "error", is left untouched).
-      if (ackUpdateFailures > 0 && variant === "success") {
+      // success, nor as a neutral "info" run that looks like nothing happened.
+      // Note emailsSent EXCLUDES these records, so when every send succeeded but
+      // every update failed the chain above lands on "info", not "success".
+      // Raise severity to at least "warning" for this condition alone
+      // (an already-worse variant, i.e. "error", is left untouched).
+      if (ackUpdateFailures > 0 && variant !== "error") {
         title = "Completed With Issues";
         variant = "warning";
       }
