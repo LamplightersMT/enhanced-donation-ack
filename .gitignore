@@ -8,6 +8,11 @@
 .localdevserver/
 deploy-options.json
 
+# CumulusCI
+.cci/
+test_results.json
+test_results.xml
+
 # LWC VSCode autocomplete
 **/lwc/jsconfig.json
 

@@ -20,7 +20,7 @@
         <nameSegment>DonationAcknowledgementService</nameSegment>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </actionCalls>
-    <apiVersion>63.0</apiVersion>
+    <apiVersion>62.0</apiVersion>
     <assignments>
         <description
     >Concatenate the values of &apos;ids&apos; and &apos;recordId&apos; into &apos;allIds&apos;</description>
