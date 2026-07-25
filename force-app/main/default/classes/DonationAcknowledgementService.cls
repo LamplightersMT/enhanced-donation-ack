@@ -18,6 +18,8 @@ public with sharing class DonationAcknowledgementService {
     @InvocableVariable
     public Integer emailSendFailures;
     @InvocableVariable
+    public Integer ackUpdateFailures;
+    @InvocableVariable
     public String emailType;
     @InvocableVariable
     public String summaryMessage;
@@ -82,14 +84,33 @@ public with sharing class DonationAcknowledgementService {
   public static List<DetailedAckResultWrapper> sendAcknowledgementsInvocable(
     List<OpportunityIdWrapper> inputList
   ) {
-    List<Id> idList = serviceInstance.extractOpportunityIds(inputList);
     List<DetailedAckResultWrapper> results = new List<DetailedAckResultWrapper>();
-    AckDetailedResult detailedResult = serviceInstance.sendAcknowledgementsDetailed(
-      idList
-    );
-    DetailedAckResultWrapper flowResult = serviceInstance.convertToFlowWrapper(
-      detailedResult
-    );
+    DetailedAckResultWrapper flowResult;
+    try {
+      List<Id> idList = serviceInstance.extractOpportunityIds(inputList);
+      AckDetailedResult detailedResult = serviceInstance.sendAcknowledgementsDetailed(
+        idList
+      );
+      flowResult = serviceInstance.convertToFlowWrapper(detailedResult);
+    } catch (Exception e) {
+      // This method must never throw - Flow invocable methods that throw break
+      // the running Flow interview. Report the failure in the wrapper instead.
+      System.debug(
+        LoggingLevel.ERROR,
+        'Unexpected error in sendAcknowledgementsInvocable: ' + e.getMessage()
+      );
+      flowResult = new DetailedAckResultWrapper();
+      flowResult.totalOpportunities = 0;
+      flowResult.emailsSent = 0;
+      flowResult.alreadyAcknowledged = 0;
+      flowResult.noValidContact = 0;
+      flowResult.emailSendFailures = 0;
+      flowResult.ackUpdateFailures = 0;
+      flowResult.opportunityDetails = new List<OpportunityResultWrapper>();
+      flowResult.summaryMessage =
+        'Unexpected error processing donation acknowledgements: ' +
+        e.getMessage();
+    }
     System.debug(LoggingLevel.INFO, flowResult.summaryMessage);
     results.add(flowResult);
     return results;
@@ -104,21 +125,17 @@ public with sharing class DonationAcknowledgementService {
   public static AckDetailedResult sendAcknowledgementsDetailed(
     List<Id> idList
   ) {
-    return serviceInstance.sendAcknowledgementsDetailed(idList);
-  }
-
-  /**
-   * Method to get individual opportunity results for LWC consumption
-   * @param idList List of Opportunity IDs to process
-   * @return List of OpportunityResult with detailed status and reason for each opportunity
-   */
-  @AuraEnabled
-  public static List<AckOpportunityResult> getOpportunityResults(
-    List<Id> idList
-  ) {
-    AckDetailedResult detailedResult = serviceInstance.sendAcknowledgementsDetailed(
-      idList
-    );
-    return detailedResult.opportunityResults;
+    try {
+      return serviceInstance.sendAcknowledgementsDetailed(idList);
+    } catch (Exception e) {
+      // Expected failures (validation, send, DB update) are already captured as
+      // per-opportunity statuses on the result object by the underlying commands
+      // and never reach this catch. Only truly unexpected exceptions land here.
+      System.debug(
+        LoggingLevel.ERROR,
+        'Unexpected error in sendAcknowledgementsDetailed: ' + e.getMessage()
+      );
+      throw new AuraHandledException(e.getMessage());
+    }
   }
 }

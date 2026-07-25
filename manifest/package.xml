@@ -6,6 +6,7 @@
         <members>AcknowledgementCommandOutputs</members>
         <members>AcknowledgementTestUtils</members>
         <members>AckOpportunityResult</members>
+        <members>AckSendResult</members>
         <members>AckStatus</members>
         <members>DatabaseUpdateCommand</members>
         <members>DatabaseUpdateCommandTest</members>

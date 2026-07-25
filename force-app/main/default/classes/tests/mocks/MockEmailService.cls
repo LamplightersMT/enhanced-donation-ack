@@ -5,17 +5,36 @@
 public class MockEmailService implements IEmailService {
   private Boolean successful = true;
   private String errorMessage;
+  private Set<Integer> failingIndexes;
   private Integer callCount = 0;
   private List<Messaging.SingleEmailMessage> lastEmailsSent;
 
   public MockEmailService setSuccessful() {
     this.successful = true;
     this.errorMessage = null;
+    this.failingIndexes = null;
     return this;
   }
   public MockEmailService setFailure(String errorMessage) {
     this.successful = false;
     this.errorMessage = errorMessage;
+    this.failingIndexes = null;
+    return this;
+  }
+  /**
+   * Configure the mock so that only the messages at the given (zero-based) indexes
+   * fail; all other messages succeed.
+   */
+  public MockEmailService setPartialFailure(
+    List<Integer> failingIndexes,
+    String errorMessage
+  ) {
+    this.successful = true;
+    this.errorMessage = errorMessage;
+    this.failingIndexes = new Set<Integer>();
+    if (failingIndexes != null) {
+      this.failingIndexes.addAll(failingIndexes);
+    }
     return this;
   }
   public MockEmailService reset() {
@@ -23,14 +42,26 @@ public class MockEmailService implements IEmailService {
     this.lastEmailsSent = null;
     this.errorMessage = null;
     this.successful = true;
+    this.failingIndexes = null;
     return this;
   }
-  public void sendEmail(List<Messaging.SingleEmailMessage> emails) {
+  public List<AckSendResult> sendEmail(
+    List<Messaging.SingleEmailMessage> emails
+  ) {
     this.callCount++;
     this.lastEmailsSent = emails;
-    if (!successful) {
-      throw new System.EmailException(errorMessage);
+    List<AckSendResult> results = new List<AckSendResult>();
+    for (Integer i = 0; i < emails.size(); i++) {
+      Boolean thisMessageFails = failingIndexes != null
+        ? failingIndexes.contains(i)
+        : !successful;
+      if (thisMessageFails) {
+        results.add(AckSendResult.fail(errorMessage));
+      } else {
+        results.add(AckSendResult.ok());
+      }
     }
+    return results;
   }
   public void verifyEmailCount(Integer expectedCount) {
     System.assertEquals(

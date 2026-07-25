@@ -51,11 +51,14 @@ private class ResultAggregationCommandTest {
     successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
     successResult.acknowledgmentDate = Date.today();
 
-    sendOutput.setSuccess(new List<AckOpportunityResult>{ successResult });
+    sendOutput.setResults(
+      new List<AckOpportunityResult>{ successResult },
+      new List<AckOpportunityResult>()
+    );
 
     // Create successful update output
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(1);
+    updateOutput.setCounts(1, 0);
 
     String emailType = 'Test Email Template';
 
@@ -130,13 +133,13 @@ private class ResultAggregationCommandTest {
     );
     failedResult.setStatus(AckStatus.EMAIL_SEND_FAILED, 'Email sending failed');
 
-    sendOutput.setFailure(
-      'Failed to send emails',
+    sendOutput.setResults(
+      new List<AckOpportunityResult>(),
       new List<AckOpportunityResult>{ failedResult }
     );
 
-    // Create update output (not used in failed scenario)
-    AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
+    // Create update output (not used when there are no successful sends)
+    AcknowledgementCommandOutputs.UpdateOutput updateOutput = null;
 
     String emailType = 'Test Failed Template';
 
@@ -151,7 +154,8 @@ private class ResultAggregationCommandTest {
     aggregationCmd.execute();
     Test.stopTest();
 
-    // Verify result aggregation for failed scenario
+    // Verify result aggregation for failed scenario - failures are added just
+    // like successes, unconditionally
     System.assertEquals(
       1,
       result.opportunityResults.size(),
@@ -188,6 +192,60 @@ private class ResultAggregationCommandTest {
   }
 
   @isTest
+  static void testAggregateResultsMixedSuccessAndFailureBothAdded() {
+    // Test that a batch with both successes and failures gets ALL results added,
+    // not just one side - this is the core semantics change: there is no longer
+    // an overall isSuccess flag that gates which list gets aggregated.
+    AckDetailedResult result = new AckDetailedResult();
+    AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
+
+    AckOpportunityResult successResult = new AckOpportunityResult(
+      '006000000000009AAA',
+      'Mixed Success Opportunity'
+    );
+    successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
+    successResult.acknowledgmentDate = Date.today();
+
+    AckOpportunityResult failedResult = new AckOpportunityResult(
+      '006000000000010AAA',
+      'Mixed Failed Opportunity'
+    );
+    failedResult.setStatus(AckStatus.EMAIL_SEND_FAILED, 'Email sending failed');
+
+    AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
+    sendOutput.setResults(
+      new List<AckOpportunityResult>{ successResult },
+      new List<AckOpportunityResult>{ failedResult }
+    );
+
+    AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
+    updateOutput.setCounts(1, 0);
+
+    Test.startTest();
+    ResultAggregationCommand aggregationCmd = new ResultAggregationCommand(
+      result,
+      prepOutput,
+      sendOutput,
+      updateOutput,
+      'Mixed Template'
+    );
+    aggregationCmd.execute();
+    Test.stopTest();
+
+    System.assertEquals(
+      2,
+      result.opportunityResults.size(),
+      'Should include both the success and the failure'
+    );
+    System.assertEquals(1, result.emailsSent, 'Should count the success');
+    System.assertEquals(
+      1,
+      result.emailSendFailures,
+      'Should count the failure'
+    );
+  }
+
+  @isTest
   static void testAggregateResultsMultipleOpportunities() {
     // Test result aggregation with multiple opportunities (mixed success/failure)
 
@@ -213,11 +271,11 @@ private class ResultAggregationCommandTest {
       successfulResults.add(successResult);
     }
 
-    sendOutput.setSuccess(successfulResults);
+    sendOutput.setResults(successfulResults, new List<AckOpportunityResult>());
 
     // Create update output
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(2);
+    updateOutput.setCounts(2, 0);
 
     String emailType = 'Test Multiple Template';
 
@@ -306,11 +364,14 @@ private class ResultAggregationCommandTest {
     successResult.setStatus(AckStatus.SUCCESS, 'Email sent successfully');
     successResult.acknowledgmentDate = Date.today();
 
-    sendOutput.setSuccess(new List<AckOpportunityResult>{ successResult });
+    sendOutput.setResults(
+      new List<AckOpportunityResult>{ successResult },
+      new List<AckOpportunityResult>()
+    );
 
     // Create update output
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(1);
+    updateOutput.setCounts(1, 0);
 
     String emailType = 'Test Mixed Template';
 
@@ -377,10 +438,13 @@ private class ResultAggregationCommandTest {
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
 
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
-    sendOutput.setSuccess(new List<AckOpportunityResult>());
+    sendOutput.setResults(
+      new List<AckOpportunityResult>(),
+      new List<AckOpportunityResult>()
+    );
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(0);
+    updateOutput.setCounts(0, 0);
 
     String emailType = 'Test Empty Template';
 
@@ -419,10 +483,13 @@ private class ResultAggregationCommandTest {
     AcknowledgementCommandOutputs.EmailPrepOutput prepOutput = new AcknowledgementCommandOutputs.EmailPrepOutput();
 
     AcknowledgementCommandOutputs.SendOutput sendOutput = new AcknowledgementCommandOutputs.SendOutput();
-    sendOutput.setSuccess(new List<AckOpportunityResult>());
+    sendOutput.setResults(
+      new List<AckOpportunityResult>(),
+      new List<AckOpportunityResult>()
+    );
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(0);
+    updateOutput.setCounts(0, 0);
 
     // Test with a single email type value (avoiding Test.startTest() in loop)
     String emailType = 'Template used: HTML_Donation_Acknowledgement';
@@ -493,10 +560,13 @@ private class ResultAggregationCommandTest {
     );
     testResult.setStatus(AckStatus.SUCCESS, 'Test reason');
 
-    sendOutput.setSuccess(new List<AckOpportunityResult>{ testResult });
+    sendOutput.setResults(
+      new List<AckOpportunityResult>{ testResult },
+      new List<AckOpportunityResult>()
+    );
 
     AcknowledgementCommandOutputs.UpdateOutput updateOutput = new AcknowledgementCommandOutputs.UpdateOutput();
-    updateOutput.setSuccess(1);
+    updateOutput.setCounts(1, 0);
 
     String emailType = 'Direct Modification Template';
 

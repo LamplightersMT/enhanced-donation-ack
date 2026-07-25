@@ -4,9 +4,11 @@
  */
 public interface IEmailService {
   /**
-   * Send email messages
+   * Send email messages. Never throws for per-message failures - each input
+   * email produces exactly one AckSendResult, in the same order, indicating
+   * whether that specific message succeeded or failed.
    * @param emails List of email messages to send
-   * @throws System.EmailException if there is an error sending emails
+   * @return List of AckSendResult, one per input email, same order
    */
-  void sendEmail(List<Messaging.SingleEmailMessage> emails);
+  List<AckSendResult> sendEmail(List<Messaging.SingleEmailMessage> emails);
 }

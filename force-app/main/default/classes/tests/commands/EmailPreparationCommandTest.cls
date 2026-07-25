@@ -244,7 +244,7 @@ private class EmailPreparationCommandTest {
   @isTest
   static void testPrepareEmailsSkipsOpportunitiesWithNullContact() {
     // Test that opportunities with null contacts are gracefully handled
-    // Note: In test context, we can't modify ContactId after insert
+    // Note: In test context, we can't modify npsp__Primary_Contact__c after insert
     // This test verifies the command handles empty contact list gracefully
 
     List<Opportunity> emptyContactOpps = new List<Opportunity>();

@@ -28,6 +28,14 @@ This Salesforce project automates email acknowledgements for donations, similar 
    - In the profile: `App Permissions > Flow & Flow Orchestration > Run Flows`
 1. Ensure that the `Enhanced Donation Acknowledgement` flow is enabled
 
+## Donor Contact Source
+
+This app acknowledges the Opportunity's **NPSP Primary Contact** (`npsp__Primary_Contact__c`),
+not the standard `Opportunity.ContactId` field. NPSP keeps these in sync via the primary
+Contact Role on the Opportunity, but the two can diverge in orgs with customized Contact
+Role automation. **Verify that `npsp__Primary_Contact__c` matches your organization's
+expectations for "who gets acknowledged" before relying on this app in production.**
+
 ## Known Limitations
 
 1. EDA can only send emails from the Default No-Reply Address for your organization
@@ -49,7 +57,6 @@ This Salesforce project automates email acknowledgements for donations, similar 
 ### Technical To Do
 
 - Enhance output from flows to show which Opportunities succeeded/errored
-- Support partial email failures by collecting and examining individual Messaging.SendEmailResult objects for granular error handling
 
 ## Architecture
 
@@ -120,6 +127,22 @@ Run tests with: `scripts/run_all_tests.sh`
   - [a possible no-code approach](https://www.accidentalcodersf.com/2023/02/flow-list-view-pass-records.html)
 
 ## Recent Updates
+
+### Unified Error Handling (Phase B)
+
+- Replaced exception-based control flow with result objects for all expected failure
+  modes - email sends and database updates no longer throw for per-record failures.
+- `IEmailService.sendEmail` now returns a per-message `AckSendResult` list (via
+  `Messaging.sendEmail(emails, false)`), so a batch of acknowledgement emails can
+  partially succeed instead of all-or-nothing.
+- `DatabaseUpdateCommand` uses `Database.update(records, false)` so a DML failure on
+  one record doesn't block the others.
+- Added `AckStatus.ACK_UPDATE_FAILED` for the "email sent but the database update
+  failed" case - these opportunities need manual attention to avoid a duplicate
+  acknowledgement, and are surfaced via `AckDetailedResult.ackUpdateFailures` and in
+  the LWC toast (which is never a plain success toast when this count is non-zero).
+- Switched the donor/contact lookup from `Opportunity.ContactId` to
+  `npsp__Primary_Contact__c` - see [Donor Contact Source](#donor-contact-source) above.
 
 ### Acknowledgment Status Field Update
 

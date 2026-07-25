@@ -20,7 +20,7 @@ private class DonationAcknowledgementServiceTest {
       StageName = 'Closed Won',
       CloseDate = Date.today(),
       Amount = 100,
-      ContactId = c.Id
+      npsp__Primary_Contact__c = c.Id
     );
     insert opp;
     // (Do NOT create OrgWideEmailAddress here; not allowed in Apex tests)
@@ -129,7 +129,9 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testEmailSendingFailureDoesNotUpdateAcknowledgmentDate() {
-    // This test verifies that if email sending fails, acknowledgment dates are not updated
+    // This test verifies that if email sending fails, acknowledgment dates are not
+    // updated, and that the facade never throws for this expected failure - it is
+    // reported as a per-opportunity EMAIL_SEND_FAILED status instead.
     Opportunity opp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
       [SELECT Id FROM Opportunity LIMIT 1].Id
     );
@@ -141,41 +143,41 @@ private class DonationAcknowledgementServiceTest {
       'Opportunity should start without acknowledgment date'
     );
 
-    // Create a scenario that might cause email sending to fail
-    // Note: In test context, Messaging.sendEmail() typically doesn't fail,
-    // but this test documents the expected behavior if it did fail
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
+    MockEmailService mock = (MockEmailService) service.emailService;
+    mock.setFailure('Simulated total send failure');
+    AcknowledgementTestUtils.injectServiceInstance(service);
 
     List<Id> oppIds = new List<Id>{ opp.Id };
 
     Test.startTest();
-    try {
-      AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
-        oppIds
-      );
-      // If we get here, email sending succeeded (normal test behavior)
-      System.assert(result.emailsSent > 0, 'Should indicate emails were sent');
-
-      // Verify acknowledgment date was set on success
-      AcknowledgementTestUtils.assertAcknowledgmentDateSetToday(opp.Id);
-    } catch (AuraHandledException e) {
-      // If email sending failed (unlikely in test context), verify acknowledgment date was not set
-      System.assert(
-        e.getMessage().contains('Failed to send acknowledgement emails') ||
-        e.getMessage().contains('Script-thrown exception'), // Re-thrown Aura Exceptions have this message for unknown reasons
-        'Exception should indicate email sending failure. Actual: ' +
-        e.getMessage()
-      );
-
-      Opportunity updatedOpp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
-        opp.Id
-      );
-      System.assertEquals(
-        null,
-        updatedOpp.npsp__Acknowledgment_Date__c,
-        'Acknowledgment date should not be set on failure'
-      );
-    }
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      oppIds
+    );
+    AcknowledgementTestUtils.resetServiceInstance();
     Test.stopTest();
+
+    // Verify the failure was reported without throwing
+    System.assertEquals(
+      0,
+      result.emailsSent,
+      'Should not indicate any emails were sent'
+    );
+    System.assertEquals(
+      1,
+      result.emailSendFailures,
+      'Should indicate 1 email send failure'
+    );
+
+    // Verify acknowledgment date was NOT set on failure
+    Opportunity updatedOpp = AcknowledgementTestUtils.queryOpportunityWithAckDate(
+      opp.Id
+    );
+    System.assertEquals(
+      null,
+      updatedOpp.npsp__Acknowledgment_Date__c,
+      'Acknowledgment date should not be set on failure'
+    );
   }
 
   @isTest
@@ -525,35 +527,47 @@ private class DonationAcknowledgementServiceTest {
 
   @isTest
   static void testSendEmailsCoreDetailedWithMixedScenarios() {
-    // Inline creation of test opportunities for each scenario
+    // Inline creation of test opportunities for each scenario.
+    // Bulk-inserted in a single DML statement - NPSP's Primary Contact Role
+    // sync automation (triggered by npsp__Primary_Contact__c) can otherwise
+    // blow through the SOQL governor limit when several opportunities share a
+    // Contact/Account and are inserted one at a time in the same test method.
     String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
     Contact validContact = AcknowledgementTestUtils.createTestContact(
       'testuser_' + unique + '@example.com'
     );
     Contact noEmailContact = AcknowledgementTestUtils.createTestContactWithoutEmail();
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity successOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Success Opp',
       validContact,
       null,
       100
     );
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'Already Acknowledged Opp',
       validContact,
       Date.today().addDays(-1),
       200
     );
-    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noContactOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Contact Opp',
       null,
       null,
       150
     );
-    Opportunity noEmailOpp = AcknowledgementTestUtils.createTestOpportunity(
+    Opportunity noEmailOpp = AcknowledgementTestUtils.buildTestOpportunity(
       'No Email Opp',
       noEmailContact,
       null,
       75
+    );
+    AcknowledgementTestUtils.insertTestOpportunities(
+      new List<Opportunity>{
+        successOpp,
+        acknowledgedOpp,
+        noContactOpp,
+        noEmailOpp
+      }
     );
     List<Opportunity> opps = AcknowledgementTestUtils.queryOpportunitiesFullFields(
       new List<Id>{
@@ -587,6 +601,7 @@ private class DonationAcknowledgementServiceTest {
     System.assertNotEquals(null, AckStatus.NO_EMAIL);
     System.assertNotEquals(null, AckStatus.EMAIL_SEND_FAILED);
     System.assertNotEquals(null, AckStatus.INVALID_OPPORTUNITY);
+    System.assertNotEquals(null, AckStatus.ACK_UPDATE_FAILED);
   }
 
   @isTest
@@ -723,65 +738,6 @@ private class DonationAcknowledgementServiceTest {
   }
 
   @isTest
-  static void testGetOpportunityResults() {
-    // Test individual opportunity results method for LWC consumption
-    Contact c = [SELECT Id FROM Contact LIMIT 1];
-
-    // Create mixed scenario opportunities
-    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
-      'Success Opp',
-      c,
-      null,
-      100
-    );
-    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
-      'Already Acknowledged Opp',
-      c,
-      Date.today().addDays(-1), // Already acknowledged
-      200
-    );
-
-    List<Id> oppIds = new List<Id>{ successOpp.Id, acknowledgedOpp.Id };
-
-    Test.startTest();
-    AcknowledgementTestUtils.injectServiceWithMockEmail();
-
-    List<AckOpportunityResult> results = DonationAcknowledgementService.getOpportunityResults(
-      oppIds
-    );
-
-    AcknowledgementTestUtils.resetServiceInstance();
-    Test.stopTest();
-
-    // Verify LWC consumption compatibility
-    System.assertEquals(2, results.size(), 'Should have 2 opportunity results');
-
-    // Find results by opportunity name using helper
-    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
-      results
-    );
-
-    // Verify successful opportunity
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'Success Opp',
-      AckStatus.SUCCESS,
-      'Email sent successfully'
-    );
-
-    AckOpportunityResult successResult = resultsByName.get('Success Opp');
-    System.assertEquals('testuser@example.com', successResult.contactEmail);
-
-    // Verify already acknowledged opportunity
-    AcknowledgementTestUtils.assertOpportunityResult(
-      resultsByName,
-      'Already Acknowledged Opp',
-      AckStatus.ALREADY_ACKNOWLEDGED,
-      'already acknowledged'
-    );
-  }
-
-  @isTest
   static void testEnhancedAPIMethodsConsistency() {
     // Test that enhanced methods return consistent data with invocable methods
     Opportunity opp = [SELECT Id FROM Opportunity LIMIT 1];
@@ -841,6 +797,130 @@ private class DonationAcknowledgementServiceTest {
       detailedResult.emailType,
       'Should have email type information. Actual: ' +
       String.valueOf(detailedResult.emailType)
+    );
+  }
+
+  @isTest
+  static void testInvocableWithTotalSendFailureDoesNotThrow() {
+    // Verify sendAcknowledgementsInvocable never throws, even when every email
+    // send fails - Flow invocable methods must not throw or they break the
+    // running Flow interview.
+    Contact c = [SELECT Id FROM Contact LIMIT 1];
+    Opportunity opp1 = AcknowledgementTestUtils.createTestOpportunity(
+      'Invocable Fail Opp 1',
+      c,
+      null,
+      100
+    );
+    Opportunity opp2 = AcknowledgementTestUtils.createTestOpportunity(
+      'Invocable Fail Opp 2',
+      c,
+      null,
+      100
+    );
+
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
+    MockEmailService mock = (MockEmailService) service.emailService;
+    mock.setFailure('Total send outage');
+    AcknowledgementTestUtils.injectServiceInstance(service);
+
+    List<DonationAcknowledgementService.OpportunityIdWrapper> input = AcknowledgementTestUtils.createWrapperInput(
+      new List<Id>{ opp1.Id, opp2.Id }
+    );
+
+    Test.startTest();
+    List<DonationAcknowledgementService.DetailedAckResultWrapper> results = DonationAcknowledgementService.sendAcknowledgementsInvocable(
+      input
+    );
+    AcknowledgementTestUtils.resetServiceInstance();
+    Test.stopTest();
+
+    System.assertEquals(1, results.size(), 'Should return exactly 1 wrapper');
+    System.assertEquals(
+      2,
+      results[0].emailSendFailures,
+      'Should report both opportunities as email send failures'
+    );
+    System.assertEquals(
+      0,
+      results[0].emailsSent,
+      'Should report 0 emails sent'
+    );
+    System.assertNotEquals(
+      null,
+      results[0].summaryMessage,
+      'Should have a summary message'
+    );
+  }
+
+  @isTest
+  static void testSendAcknowledgementsDetailedWithMixedResultsDoesNotThrow() {
+    // Verify the AuraEnabled sendAcknowledgementsDetailed method returns mixed
+    // per-opportunity statuses (some succeed, some fail) without throwing.
+    String unique = String.valueOf(Math.mod(Crypto.getRandomInteger(), 100000));
+    Contact validContact = AcknowledgementTestUtils.createTestContact(
+      'testuser_' + unique + '@example.com'
+    );
+    Opportunity successOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Mixed Success Opp',
+      validContact,
+      null,
+      100
+    );
+    Opportunity acknowledgedOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Mixed Already Acknowledged Opp',
+      validContact,
+      Date.today().addDays(-1),
+      200
+    );
+    Opportunity noContactOpp = AcknowledgementTestUtils.createTestOpportunity(
+      'Mixed No Contact Opp',
+      null,
+      null,
+      150
+    );
+
+    DonationAcknowledgementServiceImpl service = AcknowledgementTestUtils.createConfiguredServiceWithMockEmail();
+    AcknowledgementTestUtils.injectServiceInstance(service);
+
+    List<Id> oppIds = new List<Id>{
+      successOpp.Id,
+      acknowledgedOpp.Id,
+      noContactOpp.Id
+    };
+
+    Test.startTest();
+    AckDetailedResult result = DonationAcknowledgementService.sendAcknowledgementsDetailed(
+      oppIds
+    );
+    AcknowledgementTestUtils.resetServiceInstance();
+    Test.stopTest();
+
+    System.assertEquals(
+      3,
+      result.totalOpportunities,
+      'Should process all 3 opportunities'
+    );
+    Map<String, AckOpportunityResult> resultsByName = AcknowledgementTestUtils.createResultsByNameMap(
+      result.opportunityResults
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Mixed Success Opp',
+      AckStatus.SUCCESS,
+      'Email sent successfully'
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Mixed Already Acknowledged Opp',
+      AckStatus.ALREADY_ACKNOWLEDGED,
+      null
+    );
+    AcknowledgementTestUtils.assertOpportunityResult(
+      resultsByName,
+      'Mixed No Contact Opp',
+      AckStatus.NO_CONTACT,
+      null
     );
   }
 }

@@ -2,6 +2,9 @@ import { createElement } from "lwc";
 import AcknowledgeDonationButton from "../acknowledgeDonationButton";
 import sendAcknowledgementsDetailed from "@salesforce/apex/DonationAcknowledgementService.sendAcknowledgementsDetailed";
 
+// Event name dispatched by lightning/platformShowToastEvent's ShowToastEvent
+const SHOW_TOAST_EVENT_NAME = "lightning__showtoast";
+
 // Mock the Apex method
 jest.mock(
   "@salesforce/apex/DonationAcknowledgementService.sendAcknowledgementsDetailed",
@@ -90,5 +93,205 @@ describe("c-acknowledge-donation-button", () => {
     expect(sendAcknowledgementsDetailed).toHaveBeenCalledWith({
       idList: ["006000000000001AAA", "006000000000002AAA", "006000000000003AAA"]
     });
+  });
+
+  it("shows a warning (not success) toast when emails sent but a record update failed", async () => {
+    const mockDetailedResult = {
+      totalOpportunities: 2,
+      emailsSent: 2,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 1
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("warning");
+    expect(toastEvent.detail.message).toContain(
+      "1 sent but record update failed"
+    );
+  });
+
+  it("never shows a plain success toast when ackUpdateFailures > 0, even with 0 email failures", async () => {
+    const mockDetailedResult = {
+      totalOpportunities: 1,
+      emailsSent: 1,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 1
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).not.toBe("success");
+  });
+
+  it("warns when every email sent but every record update failed (emailsSent is 0)", async () => {
+    // emailsSent excludes ACK_UPDATE_FAILED records, so a run where every send
+    // succeeded but every update failed reports emailsSent: 0. This is the
+    // highest-risk case - donors were emailed, nothing was recorded - and it
+    // must not surface as a neutral "Processing Complete" info toast.
+    const mockDetailedResult = {
+      totalOpportunities: 1,
+      emailsSent: 0,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 1
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("warning");
+    expect(toastEvent.detail.title).toBe("Completed With Issues");
+    expect(toastEvent.detail.message).toContain(
+      "1 sent but record update failed"
+    );
+  });
+
+  it("leaves an error variant untouched when there are also update failures", async () => {
+    // A batch with genuine send failures is already "error"; the ackUpdateFailures
+    // escalation must not downgrade it to "warning".
+    const mockDetailedResult = {
+      totalOpportunities: 3,
+      emailsSent: 0,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 2,
+      ackUpdateFailures: 1
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("error");
+  });
+
+  it("warns rather than showing success when some sends succeeded and some failed", async () => {
+    // Partial-success sends make this mix reachable: a green "Success" toast
+    // here would tell a fundraiser the whole batch went out when one donor
+    // was never emailed at all.
+    const mockDetailedResult = {
+      totalOpportunities: 3,
+      emailsSent: 2,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 1,
+      ackUpdateFailures: 0
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("warning");
+    expect(toastEvent.detail.title).toBe("Completed With Issues");
+    expect(toastEvent.detail.message).toContain("1 failed");
+  });
+
+  it("shows a success toast with no ackUpdateFailures message when there are no update failures", async () => {
+    const mockDetailedResult = {
+      totalOpportunities: 1,
+      emailsSent: 1,
+      alreadyAcknowledged: 0,
+      noValidContact: 0,
+      emailSendFailures: 0,
+      ackUpdateFailures: 0
+    };
+    sendAcknowledgementsDetailed.mockResolvedValue(mockDetailedResult);
+
+    const element = createElement("c-acknowledge-donation-button", {
+      is: AcknowledgeDonationButton
+    });
+    element.recordId = "006000000000001AAA";
+    document.body.appendChild(element);
+
+    const toastHandler = jest.fn();
+    element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
+
+    const button = element.shadowRoot.querySelector("lightning-button");
+    button.click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const toastEvent = toastHandler.mock.calls[0][0];
+    expect(toastEvent.detail.variant).toBe("success");
+    expect(toastEvent.detail.message).not.toContain("record update failed");
   });
 });

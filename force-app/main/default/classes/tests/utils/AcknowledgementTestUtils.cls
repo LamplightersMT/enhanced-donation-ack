@@ -36,9 +36,16 @@ public class AcknowledgementTestUtils {
   }
 
   /**
-   * Create a test opportunity with specified parameters
+   * Build (but do not insert) a test opportunity with specified parameters.
+   * Use this together with insertTestOpportunities() to bulk-insert several
+   * opportunities in a single DML statement. NPSP's Primary Contact Role sync
+   * automation (triggered by writing npsp__Primary_Contact__c) recalculates
+   * rollups per DML statement rather than per record - inserting several
+   * opportunities for the same Contact/Account one at a time (multiple
+   * individual `insert opp;` statements in one test method) can blow through
+   * the 100 SOQL query governor limit. Bulk-inserting avoids that.
    */
-  public static Opportunity createTestOpportunity(
+  public static Opportunity buildTestOpportunity(
     String name,
     Contact contact,
     Date ackDate,
@@ -49,11 +56,35 @@ public class AcknowledgementTestUtils {
       StageName = 'Closed Won',
       CloseDate = Date.today(),
       Amount = amount != null ? amount : 100,
-      ContactId = contact != null ? contact.Id : null
+      npsp__Primary_Contact__c = contact != null ? contact.Id : null
     );
     if (ackDate != null) {
       opp.npsp__Acknowledgment_Date__c = ackDate;
     }
+    return opp;
+  }
+
+  /**
+   * Bulk-insert a list of opportunities built with buildTestOpportunity().
+   * See buildTestOpportunity() for why this matters with NPSP installed.
+   */
+  public static List<Opportunity> insertTestOpportunities(
+    List<Opportunity> opps
+  ) {
+    insert opps;
+    return opps;
+  }
+
+  /**
+   * Create a test opportunity with specified parameters
+   */
+  public static Opportunity createTestOpportunity(
+    String name,
+    Contact contact,
+    Date ackDate,
+    Decimal amount
+  ) {
+    Opportunity opp = buildTestOpportunity(name, contact, ackDate, amount);
     insert opp;
     return opp;
   }
@@ -122,7 +153,7 @@ public class AcknowledgementTestUtils {
         StageName,
         CloseDate,
         AccountId,
-        ContactId,
+        npsp__Primary_Contact__c,
         npsp__Acknowledgment_Date__c,
         npsp__Acknowledgment_Status__c
       FROM Opportunity
