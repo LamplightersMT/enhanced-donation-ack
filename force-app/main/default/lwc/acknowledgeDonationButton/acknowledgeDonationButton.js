@@ -51,16 +51,30 @@ export default class AcknowledgeDonationButton extends LightningElement {
         message += `, ${ackUpdateFailures} sent but record update failed`;
       }
 
-      // Determine appropriate title and variant based on results
+      // Severity ladder: the WORST condition present wins, so this is ordered
+      // most severe first. Since sends became partial-success, several of these
+      // counters can be non-zero in the same run (e.g. some emails sent, one
+      // address failed), so a first-match-wins chain on the happy path would
+      // report a green success while a donor silently went unacknowledged.
+      // Two failure conditions must never be reported as plain success:
+      //   emailSendFailures - the donor was never emailed
+      //   ackUpdateFailures - the donor WAS emailed but nothing was recorded,
+      //     which risks a duplicate acknowledgement later. Note these records
+      //     are excluded from emailsSent, so this can be the only signal.
       let title;
       let variant;
 
-      if (emailsSent > 0) {
-        title = "Success";
-        variant = "success";
-      } else if (emailSendFailures > 0) {
+      if (emailSendFailures > 0 && emailsSent === 0) {
+        // Nothing reached a donor.
         title = "Email Send Failed";
         variant = "error";
+      } else if (emailSendFailures > 0 || ackUpdateFailures > 0) {
+        // Partly worked, partly needs manual attention.
+        title = "Completed With Issues";
+        variant = "warning";
+      } else if (emailsSent > 0) {
+        title = "Success";
+        variant = "success";
       } else if (
         alreadyAcknowledged > 0 &&
         alreadyAcknowledged === totalOpportunities
@@ -73,18 +87,6 @@ export default class AcknowledgeDonationButton extends LightningElement {
       } else {
         title = "Processing Complete";
         variant = "info";
-      }
-
-      // A run that sent an email but failed to persist the acknowledgement record
-      // needs manual attention - it must never be reported as a plain green
-      // success, nor as a neutral "info" run that looks like nothing happened.
-      // Note emailsSent EXCLUDES these records, so when every send succeeded but
-      // every update failed the chain above lands on "info", not "success".
-      // Raise severity to at least "warning" for this condition alone
-      // (an already-worse variant, i.e. "error", is left untouched).
-      if (ackUpdateFailures > 0 && variant !== "error") {
-        title = "Completed With Issues";
-        variant = "warning";
       }
 
       this.dispatchEvent(
